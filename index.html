@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>收藏資料庫</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header>
+    <h1>BJD<span>Collection Database</span></h1>
+  </header>
+
+  <!-- ===== 工具列 ===== -->
+  <main class="app">
+    <div class="toolbar">
+      <input type="search" id="searchInput" placeholder="搜尋娃名、型號、妝師、備註..." />
+
+      <select id="companyFilter">
+        <option value="">所有娃社</option>
+      </select>
+
+      <select id="statusFilter">
+        <option value="">所有狀態</option>
+        <option>已到貨</option>
+        <option>工期中</option>
+        <option>待送妝</option>
+        <option>化妝中</option>
+        <option>待出售</option>
+        <option>已售出</option>
+        <option>待補尾款</option>
+      </select>
+
+      <button class="btn btn-primary" id="addBtn">＋ 新增收藏</button>
+      <select id="exportFormat" class="export-select">
+        <option value="" disabled selected>匯出資料</option>
+        <option value="json">匯出 JSON</option>
+        <option value="csv">匯出表格 (CSV)</option>
+      </select>
+      <select id="importFormat" class="export-select">
+        <option value="" disabled selected>匯入資料</option>
+        <option value="json">匯入 JSON</option>
+        <option value="csv">匯入表格 (CSV)</option>
+      </select>
+      <input type="file" id="importInput" class="hidden" accept=".json,.csv" />
+    </div>
+
+    <div id="dirBar" class="dir-bar">
+      <span class="dir-bar-label">圖片儲存路徑：</span>
+      <span id="dirName" class="dir-bar-path">尚未設定</span>
+      <span id="dirStatus" class="dir-status-badge">未連線</span>
+      <button type="button" class="btn btn-sm" id="changeDirBtn">變更路徑</button>
+    </div>
+
+    <!-- ===== 卡片列表 ===== -->
+    <div id="list" class="grid"></div>
+  </main>
+
+  <!-- ===== 新增 / 編輯 Dialog ===== -->
+  <dialog id="bjdDialog">
+    <div class="dialog-header">
+      <h2 id="dialogTitle" class="dialog-title">新增娃項</h2>
+      <button class="btn btn-close" id="closeBtn">✕</button>
+    </div>
+
+    <div class="dialog-body">
+      <form id="bjdForm">
+
+        <!-- §1 基本資訊 -->
+        <section>
+          <h3>基本資訊</h3>
+          <div class="form-grid">
+            <div class="field">
+              <label>類型</label>
+              <select id="bjdType">
+                <option>整娃</option>
+                <option>單頭</option>
+                <option>素體</option>
+                <option>小寵</option>
+              </select>
+            </div>
+
+            <div class="field" id="nameField">
+              <label>名稱</label>
+              <input type="text" id="name" required placeholder="娃名或暱稱" />
+            </div>
+
+            <div class="field">
+              <label>娃社</label>
+              <input type="text" id="company" required placeholder="例如：Volks / soom" />
+            </div>
+
+            <div class="field">
+              <label id="officialNameLabel">官方型號</label>
+              <input type="text" id="officialName" required placeholder="例如：DDH01 / 人魚" />
+            </div>
+
+            <div class="field">
+              <label>尺寸</label>
+              <select id="size">
+                <option>三分</option>
+                <option>三插四</option>
+                <option>三插六</option>
+                <option>四分</option>
+                <option>四插六</option>
+                <option>六分</option>
+                <option>小六</option>
+                <option>八分</option>
+                <option value="custom">其他 (自訂)</option>
+              </select>
+              <input type="text" id="customSize" class="hidden" placeholder="請輸入尺寸" />
+            </div>
+
+            <div class="field">
+              <label>膚色</label>
+              <input type="text" id="skinColor" placeholder="例如：普肌、美白" />
+            </div>
+          </div>
+        </section>
+
+        <!-- §2 交易與日期 -->
+        <section>
+          <h3>交易與日期</h3>
+          <div class="form-grid">
+            <div class="field">
+              <label>狀態</label>
+              <select id="status">
+                <option>已到貨</option>
+                <option>工期中</option>
+                <option>待送妝</option>
+                <option>化妝中</option>
+                <option>待出售</option>
+                <option>已售出</option>
+                <option>待補尾款</option>
+                <option value="__custom">其他（自訂）</option>
+              </select>
+              <input type="text" id="customStatus" class="hidden" placeholder="輸入自訂狀態" />
+            </div>
+
+            <div class="field">
+              <label>購買來源</label>
+              <input type="text" id="source" placeholder="例如：官網、閒魚" />
+            </div>
+
+            <div class="field">
+              <label>幣別</label>
+              <select id="currency">
+                <option>TWD</option>
+                <option>CNY</option>
+                <option>JPY</option>
+                <option>KRW</option>
+                <option>USD</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>購入價格</label>
+              <input type="number" id="price" value="0" />
+            </div>
+
+            <div class="field">
+              <label>購買日期 (格式: 2026/04/24)</label>
+              <input type="text" id="purchaseDate" placeholder="2026/04/24" />
+            </div>
+
+            <div class="field">
+              <label>到貨日期 (或預計日期)</label>
+              <input type="text" id="arrivalDate" placeholder="2026/06/15" />
+            </div>
+
+            <div class="field" id="leadTimeField">
+              <label>工期（自動計算）</label>
+              <input type="text" id="leadTimeDisplay" readonly tabindex="-1" placeholder="填入購買與到貨日期後自動顯示" />
+            </div>
+
+            <div class="field hidden" id="paidAmountField">
+              <label>已付金額</label>
+              <input type="number" id="paidAmount" value="0" />
+            </div>
+
+            <div class="field hidden" id="balanceAmountField">
+              <label>尾款金額</label>
+              <input type="number" id="balanceAmount" value="0" />
+            </div>
+
+            <div class="field hidden" id="balanceDateField">
+              <label>預計補款日期</label>
+              <input type="text" id="balanceDate" placeholder="2026/06/15" />
+            </div>
+          </div>
+        </section>
+
+        <!-- §3 妝造與備註 -->
+        <section>
+          <h3>妝造</h3>
+          <div class="form-grid">
+            <div class="field" id="faceupStatusField">
+              <label>妝面狀態</label>
+              <select id="faceupStatus">
+                <option>已上妝</option>
+                <option>送妝中</option>
+                <option>未上妝</option>
+              </select>
+            </div>
+
+            <div class="field hidden" id="bodyMakeupField">
+              <label>是否有體妝</label>
+              <select id="hasBodyMakeup">
+                <option>否</option>
+                <option>是</option>
+              </select>
+            </div>
+
+            <div class="field" id="faceupArtistField">
+              <label id="faceupArtistLabel">妝師</label>
+              <input type="text" id="faceupArtist" placeholder="妝師名稱或暱稱" />
+            </div>
+
+            <div class="field" id="faceupTypeField">
+              <label>妝面類型</label>
+              <select id="faceupType">
+                <option>自由妝</option>
+                <option>指定妝</option>
+                <option>COS妝</option>
+                <option value="__custom">其他（自訂）</option>
+              </select>
+              <input type="text" id="customFaceupType" class="hidden" placeholder="輸入自訂妝面類型" />
+            </div>
+
+            <div class="field" id="faceupCurrencyField">
+              <label>妝面幣別</label>
+              <select id="faceupCurrency">
+                <option>TWD</option>
+                <option>CNY</option>
+                <option>JPY</option>
+                <option>KRW</option>
+                <option>USD</option>
+              </select>
+            </div>
+
+            <div class="field" id="faceupPriceField">
+              <label id="faceupPriceLabel">妝面價格</label>
+              <input type="number" id="faceupPrice" value="0" />
+            </div>
+
+            <div class="field hidden" id="faceupPaidField">
+              <label>已付金額</label>
+              <input type="number" id="faceupPaid" value="0" />
+            </div>
+
+            <div class="field hidden" id="faceupBalanceField">
+              <label>尾款金額</label>
+              <input type="number" id="faceupBalance" value="0" />
+            </div>
+
+            <div class="field" id="faceupSendDateField">
+              <label>送妝日期</label>
+              <input type="text" id="faceupSendDate" placeholder="2026/04/24" />
+            </div>
+
+            <div class="field" id="faceupDoneDateField">
+              <label id="faceupDoneDateLabel">完妝日期</label>
+              <input type="text" id="faceupDoneDate" placeholder="2026/06/15" />
+            </div>
+
+            <div class="field" id="faceupLeadTimeField">
+              <label>妝期（自動計算）</label>
+              <input type="text" id="faceupLeadTime" readonly tabindex="-1" placeholder="填入送妝與完妝日期後自動顯示" />
+            </div>
+
+            <div class="field field-span-2" id="faceupNotesField">
+              <label>妝造備註</label>
+              <textarea id="faceupNotes" rows="2" placeholder="妝面相關的資訊..."></textarea>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- §4 素體配置 (整娃時顯示) -->
+        <section id="bodyConfigSection" class="hidden">
+          <h3>素體配置</h3>
+          <div class="form-grid">
+            <div class="field">
+              <label>素體來源</label>
+              <select id="bodySource">
+                <option value="existing">已有素體</option>
+                <option value="new">新增素體</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 已有素體：從收藏中選擇 -->
+          <div id="existingBodySection">
+            <input type="text" id="bodySearchInput" class="body-picker-search" placeholder="搜尋素體型號、娃社、膚色..." />
+            <div id="bodyPickerList" class="body-picker-list"></div>
+            <input type="hidden" id="selectedBodyId" />
+          </div>
+
+          <!-- 新增素體 -->
+          <div id="newBodySection" class="sub-section">
+            <h4>📦 新增素體配置</h4>
+            <div class="form-grid">
+              <div class="field">
+                <label>素體娃社</label>
+                <input type="text" id="bodyCompany" placeholder="例如：Volks / soom" />
+              </div>
+
+              <div class="field">
+                <label>素體官方型號</label>
+                <input type="text" id="bodyOfficialName" placeholder="例如：DDH01 素體" />
+              </div>
+
+              <div class="field">
+                <label>尺寸</label>
+                <select id="bodySize">
+                  <option>三分</option>
+                  <option>三插四</option>
+                  <option>三插六</option>
+                  <option>四分</option>
+                  <option>四插六</option>
+                  <option>六分</option>
+                  <option>小六</option>
+                  <option>八分</option>
+                  <option value="custom">其他 (自訂)</option>
+                </select>
+                <input type="text" id="bodyCustomSize" class="hidden" placeholder="請輸入尺寸" />
+              </div>
+
+              <div class="field">
+                <label>膚色</label>
+                <input type="text" id="bodySkinColor" placeholder="例如：普肌、美白" />
+              </div>
+
+              <div class="field">
+                <label>是否有體妝</label>
+                <select id="bodyHasBodyMakeup">
+                  <option>否</option>
+                  <option>是</option>
+                </select>
+              </div>
+
+              <div class="field hidden" id="bodyFaceupArtistField">
+                <label>體妝師</label>
+                <input type="text" id="bodyFaceupArtist" placeholder="妝師名稱或暱稱" />
+              </div>
+
+              <div class="field hidden" id="bodyFaceupTypeField">
+                <label>體妝類型</label>
+                <select id="bodyFaceupType">
+                  <option>自由妝</option>
+                  <option>指定妝</option>
+                  <option>COS妝</option>
+                  <option value="__custom">其他（自訂）</option>
+                </select>
+                <input type="text" id="bodyCustomFaceupType" class="hidden" placeholder="輸入自訂體妝類型" />
+              </div>
+
+              <div class="field hidden" id="bodyFaceupCurrencyField">
+                <label>體妝幣別</label>
+                <select id="bodyFaceupCurrency">
+                  <option>TWD</option>
+                  <option>CNY</option>
+                  <option>JPY</option>
+                  <option>KRW</option>
+                  <option>USD</option>
+                </select>
+              </div>
+
+              <div class="field hidden" id="bodyFaceupPriceField">
+                <label>體妝價格</label>
+                <input type="number" id="bodyFaceupPrice" value="0" />
+              </div>
+
+              <div class="field hidden" id="bodyFaceupSendDateField">
+                <label>送妝日期</label>
+                <input type="text" id="bodyFaceupSendDate" placeholder="2026/04/24" />
+              </div>
+
+              <div class="field hidden" id="bodyFaceupDoneDateField">
+                <label>完妝日期</label>
+                <input type="text" id="bodyFaceupDoneDate" placeholder="2026/06/15" />
+              </div>
+
+              <div class="field hidden" id="bodyFaceupLeadTimeField">
+                <label>體妝妝期（自動計算）</label>
+                <input type="text" id="bodyFaceupLeadTime" readonly tabindex="-1" placeholder="填入送妝與完妝日期後自動顯示" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- §5 收藏影像 -->
+        <section>
+          <h3>收藏影像</h3>
+
+          <!-- 上傳區 -->
+          <div class="upload-zone" id="uploadZone">
+            <input type="file" id="imageFileInput" class="hidden" accept="image/*" multiple />
+            <div class="upload-zone-content">
+              <span class="upload-zone-icon">📷</span>
+              <span class="upload-zone-text">點擊選擇圖片 或 將圖片拖放至此</span>
+              <span class="upload-zone-hint">可多選，支援 JPG、PNG、GIF、WebP</span>
+            </div>
+          </div>
+
+          <!-- URL 備用 -->
+          <details class="url-fallback">
+            <summary>或使用圖片網址新增</summary>
+            <div class="url-fallback-row">
+              <input type="url" id="imageUrlInput" class="url-fallback-input" placeholder="請貼上圖片網址，例如 https://..." />
+              <button type="button" class="btn btn-primary btn-sm" id="addUrlImageBtn">加入</button>
+            </div>
+          </details>
+
+          <!-- 已加入的圖片列表 -->
+          <div id="imageGallery" class="image-gallery"></div>
+        </section>
+
+        <!-- §6 備註 -->
+        <section>
+          <h3>備註</h3>
+          <div class="field">
+            <textarea id="notes" rows="4" placeholder="其他細節紀錄..."></textarea>
+          </div>
+        </section>
+
+      </form>
+    </div>
+
+    <div class="dialog-footer">
+      <button class="btn" id="cancelBtn">取消</button>
+      <button class="btn btn-primary" id="saveBtn" form="bjdForm">儲存收藏</button>
+    </div>
+  </dialog>
+
+  <!-- ===== 刪除確認 Dialog ===== -->
+  <dialog id="deleteDialog">
+    <div class="dialog-header">
+      <h2 class="dialog-title">確認刪除</h2>
+      <button type="button" class="btn btn-close" id="deleteCloseBtn">✕</button>
+    </div>
+    <div class="dialog-body" style="padding:20px 30px;">
+      <p id="deleteMsg" style="font-size:15px;margin:0 0 16px 0;"></p>
+      <label id="deleteBodyLabel" class="delete-body-option hidden">
+        <input type="checkbox" id="deleteBodyCheck" />
+        同時刪除關聯的素體資料
+      </label>
+    </div>
+    <div class="dialog-footer">
+      <button type="button" class="btn" id="deleteCancelBtn">取消</button>
+      <button type="button" class="btn btn-primary" id="deleteConfirmBtn" style="background:var(--danger);">確認刪除</button>
+    </div>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
