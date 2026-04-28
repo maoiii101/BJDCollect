@@ -2090,6 +2090,7 @@ let data = collectFormData();
   }
 
   window.loadDataFromCloud = loadData;
+  window.loadData = loadData;
 
   window.clearLocalView = function () {
     items = [];
