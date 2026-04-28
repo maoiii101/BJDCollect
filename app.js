@@ -1545,7 +1545,9 @@ async function replaceAllDollsInSupabase(newItems) {
     pendingDeleteId = null;
     els.deleteDialog.close();
   }
-
+  function emptyToNull(value) {
+   return value === "" ? null : value;
+   }
   function collectFormData() {
     return {
       id: editingId || Date.now().toString(),
@@ -1639,8 +1641,8 @@ async function replaceAllDollsInSupabase(newItems) {
           : fields.bodyFaceupType.value,
       faceupCurrency: fields.bodyFaceupCurrency.value,
       faceupPrice: parseFloat(fields.bodyFaceupPrice.value) || 0,
-      faceupSendDate: fields.bodyFaceupSendDate.value,
-      faceupDoneDate: fields.bodyFaceupDoneDate.value,
+      faceupSendDate: fields.bodyFaceupSendDate.value || null,
+      faceupDoneDate: fields.bodyFaceupDoneDate.value || null,
       faceupLeadTime: fields.bodyFaceupLeadTime.value,
       notes: "",
       images: [],
