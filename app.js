@@ -1564,7 +1564,7 @@ async function replaceAllDollsInSupabase(newItems) {
           : fields.status.value,
       paidAmount: parseFloat(fields.paidAmount.value) || 0,
       balanceAmount: parseFloat(fields.balanceAmount.value) || 0,
-      balanceDate: fields.balanceDate.value,
+      balanceDate: fields.balanceDate.value || null,
       currency: fields.currency.value,
       price: parseFloat(fields.price.value) || 0,
       source: fields.source.value,
@@ -1577,8 +1577,8 @@ async function replaceAllDollsInSupabase(newItems) {
           ? fields.customFaceupType.value
           : fields.faceupType.value,
       faceupNotes: fields.faceupNotes.value,
-      faceupSendDate: fields.faceupSendDate.value,
-      faceupDoneDate: fields.faceupDoneDate.value,
+      faceupSendDate: fields.faceupSendDate.value || null,
+      faceupDoneDate: fields.faceupDoneDate.value || null,
       faceupLeadTime: fields.faceupLeadTime.value,
       faceupArtist: fields.faceupArtist.value,
       faceupCurrency: fields.faceupCurrency.value,
@@ -1606,8 +1606,8 @@ async function replaceAllDollsInSupabase(newItems) {
           : fields.bodyFaceupType.value,
       bodyFaceupCurrency: fields.bodyFaceupCurrency.value,
       bodyFaceupPrice: parseFloat(fields.bodyFaceupPrice.value) || 0,
-      bodyFaceupSendDate: fields.bodyFaceupSendDate.value,
-      bodyFaceupDoneDate: fields.bodyFaceupDoneDate.value,
+      bodyFaceupSendDate: fields.bodyFaceupSendDate.value || null,
+      bodyFaceupDoneDate: fields.bodyFaceupDoneDate.value || null,
       bodyFaceupLeadTime: fields.bodyFaceupLeadTime.value,
     };
   }
