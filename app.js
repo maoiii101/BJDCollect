@@ -14,6 +14,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 let currentUser = null;
 
 const loginBtn = document.getElementById("loginBtn");
+const registerBtn = document.getElementById("registerBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const userInfo = document.getElementById("userInfo");
 
@@ -43,7 +44,39 @@ async function showLoginDialog() {
   }
 }
 
+async function showRegisterDialog() {
+  const email = prompt("請輸入註冊電子郵件：");
+  if (!email) return;
+
+  const password = prompt("請輸入註冊密碼：");
+  if (!password) return;
+
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password
+    });
+
+    if (error) throw error;
+
+    if (data && data.session) {
+      currentUser = data.user;
+      updateAuthUI();
+      await loadData();
+      alert("註冊成功，已自動登入！");
+    } else {
+      alert(
+        "註冊成功！請前往信箱確認電子郵件後，再回到此頁面登入。"
+      );
+    }
+  } catch (error) {
+    console.error("註冊失敗：", error);
+    alert("註冊失敗：" + error.message);
+  }
+}
+
 loginBtn.addEventListener("click", showLoginDialog);
+registerBtn.addEventListener("click", showRegisterDialog);
 
 logoutBtn.addEventListener("click", async () => {
   try {
@@ -61,11 +94,13 @@ logoutBtn.addEventListener("click", async () => {
 function updateAuthUI() {
   if (currentUser) {
     loginBtn.style.display = "none";
+    registerBtn.style.display = "none";
     logoutBtn.style.display = "inline-block";
     userInfo.textContent = `已登入：${currentUser.email}`;
     console.log("使用者 ID：", currentUser.id);
   } else {
     loginBtn.style.display = "inline-block";
+    registerBtn.style.display = "inline-block";
     logoutBtn.style.display = "none";
     userInfo.textContent = "尚未登入";
   }
