@@ -219,9 +219,13 @@ function convertToSnakeCase(data) {
   for (const [key, value] of Object.entries(data)) {
     const targetKey = mapping[key] || key;
 
-    converted[targetKey] = SUPABASE_DATE_COLUMNS.has(targetKey)
-      ? normalizeDateForSupabase(value)
-      : value;
+    if (SUPABASE_DATE_COLUMNS.has(targetKey)) {
+  converted[targetKey] = normalizeDateForSupabase(value);
+} else if (value === "") {
+  converted[targetKey] = null;
+} else {
+  converted[targetKey] = value;
+}
   }
 
   return converted;
@@ -392,13 +396,17 @@ async function replaceAllDollsInSupabase(newItems) {
 
   // 再插入新資料
   const now = new Date().toISOString();
-  const itemsToInsert = newItems.map(item => ({
-    id: item.id || Date.now().toString() + "_" + Math.random().toString(36).slice(2),
+  const itemsToInsert = newItems.map((item) => {
+  const cleanItem = { ...item };
+  delete cleanItem.id;
+
+  return {
     user_id: currentUser.id,
-    ...convertToSnakeCase(item),
+    ...convertToSnakeCase(cleanItem),
     created_at: now,
     updated_at: now
-  }));
+  };
+});
 
   const { error: insertError } = await supabase
     .from("dolls")
@@ -1940,9 +1948,8 @@ let data = collectFormData();
       if (cells.every((c) => c.trim() === "")) continue;
 
       const obj = {
-        id: Date.now().toString() + "_" + r,
-        images: [],
-      };
+  images: [],
+};
 
       colMap.forEach((key, i) => {
         if (!key) return;
