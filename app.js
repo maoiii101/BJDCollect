@@ -16,7 +16,7 @@
   const IDB_STORE = "settings";
 
   const IMAGE_TAG_OPTIONS = [
-    "素頭圖", "建模圖", "電子妝圖", "完妝圖", "日常照", "外拍",
+    "官圖", "素頭圖", "建模圖", "電子妝圖", "完妝圖", "日常照", "外拍","種草圖","購買紀錄",
   ];
 
   /* --------------------------------------------------
@@ -155,7 +155,7 @@
     for (let i = 0; i < images.length; i++) {
       const img = images[i];
       if (img.file) {
-        saved.push({ file: img.file, tag: img.tag });
+        saved.push({ file: img.file, tag: img.tag, cover: img.cover });
         continue;
       }
       if (!img.data) continue;
@@ -175,7 +175,7 @@
         }
       }
       await writable.close();
-      saved.push({ file: fileName, tag: img.tag });
+      saved.push({ file: fileName, tag: img.tag, cover: img.cover });
     }
     return saved;
   }
@@ -201,9 +201,9 @@
     for (const img of imgs) {
       if (img.file && imageDirHandle) {
         const url = await loadImageUrl(item.id, img.file);
-        result.push({ data: url || PLACEHOLDER_IMG, tag: img.tag, file: img.file });
+        result.push({ data: url || PLACEHOLDER_IMG, tag: img.tag, file: img.file, cover: img.cover });
       } else if (img.data) {
-        result.push({ data: img.data, tag: img.tag });
+        result.push({ data: img.data, tag: img.tag, cover: img.cover });
       }
     }
     return result;
@@ -675,11 +675,11 @@
 
   function buildCardHTML(item) {
     const imgs = migrateItemImages(item);
-    const firstImg = imgs[0];
-    const isFileRef = firstImg && firstImg.file && !firstImg.data;
-    const imgSrc = isFileRef ? PLACEHOLDER_IMG : (firstImg ? firstImg.data : PLACEHOLDER_IMG);
-    const tagBadge = firstImg && firstImg.tag
-      ? `<span class="card-img-tag">${firstImg.tag}</span>`
+    const coverImg = imgs.find((img) => img.cover) || imgs[0];
+    const isFileRef = coverImg && coverImg.file && !coverImg.data;
+    const imgSrc = isFileRef ? PLACEHOLDER_IMG : (coverImg ? coverImg.data : PLACEHOLDER_IMG);
+    const tagBadge = coverImg && coverImg.tag
+      ? `<span class="card-img-tag">${coverImg.tag}</span>`
       : "";
     const countBadge = imgs.length > 1
       ? `<span class="card-img-count">${imgs.length} 張</span>`
@@ -768,12 +768,33 @@
   /* --- 圖片處理 (多圖 + 標籤) --- */
 
   function addImage(data, tag) {
-    currentImages.push({ data, tag: tag || "" });
+    currentImages.push({ data, tag: tag || "", cover: currentImages.length === 0 });
+    renderImageGallery();
+  }
+
+  function normalizeImages(images) {
+    const normalized = (images || []).map((img) => ({ ...img, cover: Boolean(img.cover) }));
+    const coverIndex = normalized.findIndex((img) => img.cover);
+    if (coverIndex > 0) {
+      normalized.unshift(normalized.splice(coverIndex, 1)[0]);
+    }
+    if (!normalized.some((img) => img.cover) && normalized.length > 0) {
+      normalized[0].cover = true;
+    }
+    return normalized;
+  }
+
+  function setCoverImage(index) {
+    currentImages = currentImages.map((img, idx) => ({ ...img, cover: idx === index }));
+    currentImages = normalizeImages(currentImages);
     renderImageGallery();
   }
 
   function removeImage(index) {
     currentImages.splice(index, 1);
+    if (!currentImages.some((img) => img.cover) && currentImages.length > 0) {
+      currentImages[0].cover = true;
+    }
     renderImageGallery();
   }
 
@@ -804,14 +825,18 @@
   function renderImageGallery() {
     els.imageGallery.innerHTML = currentImages
       .map(
-        (img, i) => `
-      <div class="gallery-item" data-idx="${i}">
+        (img, i) => {
+          const isCover = Boolean(img.cover);
+          return `
+      <div class="gallery-item${isCover ? " gallery-item-selected" : ""}" data-idx="${i}">
         <img class="gallery-item-img" src="${img.data}" alt="" />
         <button type="button" class="gallery-item-remove" data-role="remove" title="移除">✕</button>
+        <button type="button" class="gallery-item-cover" data-role="cover" title="設為卡片封面">${isCover ? "封面" : "設為封面"}</button>
         <div class="gallery-item-footer">
           ${buildTagSelect(img.tag, i)}
         </div>
-      </div>`
+      </div>`;
+        }
       )
       .join("");
   }
@@ -835,9 +860,15 @@
   /* --- Dialog 開啟 / 編輯 --- */
 
   function migrateItemImages(item) {
-    if (item.images) return item.images;
-    if (item.imageData) return [{ data: item.imageData, tag: "" }];
-    if (item.imageInput) return [{ data: item.imageInput, tag: "" }];
+    if (item.images) {
+      const images = item.images.map((img) => ({ ...img, cover: Boolean(img.cover) }));
+      if (typeof item.coverIndex === "number" && images[item.coverIndex]) {
+        images.forEach((img, idx) => (img.cover = idx === item.coverIndex));
+      }
+      return normalizeImages(images);
+    }
+    if (item.imageData) return normalizeImages([{ data: item.imageData, tag: "", cover: true }]);
+    if (item.imageInput) return normalizeImages([{ data: item.imageInput, tag: "", cover: true }]);
     return [];
   }
 
@@ -916,11 +947,11 @@
 
     if (imageDirHandle) {
       loadImagesForItem(item).then((loaded) => {
-        currentImages = loaded;
+        currentImages = normalizeImages(loaded);
         renderImageGallery();
       });
     } else {
-      currentImages = migrateItemImages(item).map((img) => ({ ...img }));
+      currentImages = normalizeImages(migrateItemImages(item));
       renderImageGallery();
     }
 
@@ -1012,7 +1043,7 @@
       faceupPaid: parseFloat(fields.faceupPaid.value) || 0,
       faceupBalance: parseFloat(fields.faceupBalance.value) || 0,
       notes: fields.notes.value,
-      images: currentImages.slice(),
+      images: normalizeImages(currentImages.slice()),
       hasBodyMakeup: fields.hasBodyMakeup.value,
       bodySource: fields.bodySource.value,
       selectedBodyId: fields.selectedBodyId.value,
@@ -1075,7 +1106,8 @@
 
   async function handleFormSubmit(e) {
     e.preventDefault();
-    const data = collectFormData();
+    let data = collectFormData();
+    currentImages = normalizeImages(currentImages);
 
     if (imageDirHandle) {
       try {
@@ -1412,8 +1444,15 @@
     // URL 加入按鈕
     els.addUrlImageBtn.addEventListener("click", handleAddUrlImage);
 
-    // 圖片庫事件委派（移除 / 標籤選擇 / 自訂標籤輸入）
+    // 圖片庫事件委派（移除 / 設為封面 / 標籤選擇 / 自訂標籤輸入）
     els.imageGallery.addEventListener("click", (e) => {
+      const coverBtn = e.target.closest("[data-role='cover']");
+      if (coverBtn) {
+        const item = coverBtn.closest(".gallery-item");
+        setCoverImage(Number(item.dataset.idx));
+        return;
+      }
+
       const removeBtn = e.target.closest("[data-role='remove']");
       if (removeBtn) {
         const item = removeBtn.closest(".gallery-item");

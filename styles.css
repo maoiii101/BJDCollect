@@ -577,6 +577,31 @@ form h3 {
   background: var(--danger);
 }
 
+.gallery-item-cover {
+  width: calc(100% - 20px);
+  margin: 8px 10px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f3f0ef;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.gallery-item-cover:hover {
+  background: rgba(216, 137, 155, 0.12);
+  border-color: var(--accent);
+}
+
+.gallery-item-selected {
+  box-shadow: 0 0 0 3px rgba(216, 137, 155, 0.22);
+  border-color: var(--accent);
+}
+
 /* --- Image Tag Badge (card) --- */
 .card-img-wrapper {
   position: relative;

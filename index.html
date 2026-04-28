@@ -25,8 +25,6 @@
         <option value="">所有狀態</option>
         <option>已到貨</option>
         <option>工期中</option>
-        <option>待送妝</option>
-        <option>化妝中</option>
         <option>待出售</option>
         <option>已售出</option>
         <option>待補尾款</option>
@@ -106,7 +104,9 @@
                 <option>四插六</option>
                 <option>六分</option>
                 <option>小六</option>
-                <option>八分</option>
+                <option>高六</option>
+                <option>特六</option>
+                <option>特四</option>
                 <option value="custom">其他 (自訂)</option>
               </select>
               <input type="text" id="customSize" class="hidden" placeholder="請輸入尺寸" />
@@ -128,8 +128,6 @@
               <select id="status">
                 <option>已到貨</option>
                 <option>工期中</option>
-                <option>待送妝</option>
-                <option>化妝中</option>
                 <option>待出售</option>
                 <option>已售出</option>
                 <option>待補尾款</option>
@@ -140,7 +138,7 @@
 
             <div class="field">
               <label>購買來源</label>
-              <input type="text" id="source" placeholder="例如：官網、閒魚" />
+              <input type="text" id="source" placeholder="例如：官網、淘寶、閒魚" />
             </div>
 
             <div class="field">
@@ -200,7 +198,7 @@
               <select id="faceupStatus">
                 <option>已上妝</option>
                 <option>送妝中</option>
-                <option>未上妝</option>
+                <option>無上妝 / 等待送妝</option>
               </select>
             </div>
 
@@ -321,6 +319,7 @@
                   <option>四插六</option>
                   <option>六分</option>
                   <option>小六</option>
+                  <option>高六</option>
                   <option>八分</option>
                   <option value="custom">其他 (自訂)</option>
                 </select>
