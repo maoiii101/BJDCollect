@@ -127,56 +127,103 @@ supabase.auth.onAuthStateChange((event, session) => {
    Supabase 資料操作函式
    ======================================== */
 
+const SUPABASE_DATE_COLUMNS = new Set([
+  "purchase_date",
+  "arrival_date",
+  "balance_date",
+  "makeup_send_date",
+  "makeup_done_date",
+  "body_makeup_send_date",
+  "body_makeup_done_date"
+]);
+
+function normalizeDateForSupabase(value) {
+  if (value == null) return null;
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const normalized = raw
+    .replace(/\s+/g, "")
+    .replace(/[.\-]/g, "/")
+    .replace(/\u5e74/g, "/")
+    .replace(/\u6708/g, "/")
+    .replace(/\u65e5/g, "")
+    .replace(/\/+/g, "/")
+    .replace(/^\/|\/$/g, "");
+
+  const match = normalized.match(/^(\d{4})\/(\d{1,2})(?:\/(\d{1,2}))?$/);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = match[3] ? Number(match[3]) : 1;
+
+  if (month < 1 || month > 12) return null;
+
+  const maxDays = new Date(year, month, 0).getDate();
+  if (day < 1 || day > maxDays) return null;
+
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${year}-${pad(month)}-${pad(day)}`;
+}
+
 function convertToSnakeCase(data) {
   const mapping = {
-    name: 'doll_name',
-    officialName: 'official_name',
-    bjdType: 'doll_type',
-    skinColor: 'skin_color',
-    paidAmount: 'paid_amount',
-    balanceAmount: 'balance_amount',
-    balanceDate: 'balance_date',
-    currency: 'currency',
-    price: 'price',
-    source: 'source',
-    purchaseDate: 'purchase_date',
-    arrivalDate: 'arrival_date',
-    leadTime: 'lead_time',
-    faceupStatus: 'makeup_status',
-    faceupType: 'makeup_type',
-    faceupNotes: 'makeup_notes',
-    faceupSendDate: 'makeup_send_date',
-    faceupDoneDate: 'makeup_done_date',
-    faceupLeadTime: 'makeup_lead_time',
-    faceupArtist: 'makeup_artist',
-    faceupCurrency: 'makeup_currency',
-    faceupPrice: 'makeup_price',
-    faceupPaid: 'makeup_paid',
-    faceupBalance: 'makeup_balance',
-    notes: 'notes',
-    coverThumbnail: 'cover_thumbnail',
-    images: 'images',
-    hasBodyMakeup: 'has_body_makeup',
-    bodySource: 'body_source',
-    selectedBodyId: 'selected_body_id',
-    bodyCompany: 'body_company',
-    bodyOfficialName: 'body_official_name',
-    bodySize: 'body_size',
-    bodySkinColor: 'body_skin_color',
-    bodyHasBodyMakeup: 'body_has_body_makeup',
-    bodyFaceupArtist: 'body_makeup_artist',
-    bodyFaceupType: 'body_makeup_type',
-    bodyFaceupCurrency: 'body_makeup_currency',
-    bodyFaceupPrice: 'body_makeup_price',
-    bodyFaceupSendDate: 'body_makeup_send_date',
-    bodyFaceupDoneDate: 'body_makeup_done_date',
-    bodyFaceupLeadTime: 'body_makeup_lead_time'
+    name: "doll_name",
+    officialName: "official_name",
+    bjdType: "doll_type",
+    skinColor: "skin_color",
+    paidAmount: "paid_amount",
+    balanceAmount: "balance_amount",
+    balanceDate: "balance_date",
+    currency: "currency",
+    price: "price",
+    source: "source",
+    purchaseDate: "purchase_date",
+    arrivalDate: "arrival_date",
+    leadTime: "lead_time",
+    faceupStatus: "makeup_status",
+    faceupType: "makeup_type",
+    faceupNotes: "makeup_notes",
+    faceupSendDate: "makeup_send_date",
+    faceupDoneDate: "makeup_done_date",
+    faceupLeadTime: "makeup_lead_time",
+    faceupArtist: "makeup_artist",
+    faceupCurrency: "makeup_currency",
+    faceupPrice: "makeup_price",
+    faceupPaid: "makeup_paid",
+    faceupBalance: "makeup_balance",
+    notes: "notes",
+    coverThumbnail: "cover_thumbnail",
+    images: "images",
+    hasBodyMakeup: "has_body_makeup",
+    bodySource: "body_source",
+    selectedBodyId: "selected_body_id",
+    bodyCompany: "body_company",
+    bodyOfficialName: "body_official_name",
+    bodySize: "body_size",
+    bodySkinColor: "body_skin_color",
+    bodyHasBodyMakeup: "body_has_body_makeup",
+    bodyFaceupArtist: "body_makeup_artist",
+    bodyFaceupType: "body_makeup_type",
+    bodyFaceupCurrency: "body_makeup_currency",
+    bodyFaceupPrice: "body_makeup_price",
+    bodyFaceupSendDate: "body_makeup_send_date",
+    bodyFaceupDoneDate: "body_makeup_done_date",
+    bodyFaceupLeadTime: "body_makeup_lead_time"
   };
 
   const converted = {};
+
   for (const [key, value] of Object.entries(data)) {
-    converted[mapping[key] || key] = value;
+    const targetKey = mapping[key] || key;
+
+    converted[targetKey] = SUPABASE_DATE_COLUMNS.has(targetKey)
+      ? normalizeDateForSupabase(value)
+      : value;
   }
+
   return converted;
 }
 
