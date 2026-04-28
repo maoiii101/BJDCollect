@@ -15,7 +15,7 @@
   </div>
 
   <p style="font-size: smaller; margin: 5px 0 0 0; color: #666;">
-    請先使用 Google 登入。登入後，收藏資料會儲存在雲端，並可在不同裝置讀取。＊請注意，目前雲端儲存的資料不包含圖片＊
+    請先使用 Google 登入。登入後，收藏資料會儲存在雲端，並可在不同裝置讀取。＊請注意，未被授權的Google帳號無法使用＊
   </p>
 
   <header>
@@ -90,17 +90,17 @@
 
             <div class="field" id="nameField">
               <label>名稱</label>
-              <input type="text" id="name" required placeholder="娃名或暱稱" />
+              <input type="text" id="name" placeholder="娃名或暱稱" />
             </div>
 
             <div class="field">
               <label>娃社</label>
-              <input type="text" id="company" required placeholder="例如：Volks / soom" />
+              <input type="text" id="company" placeholder="例如：Volks / soom" />
             </div>
 
             <div class="field">
               <label id="officialNameLabel">官方型號</label>
-              <input type="text" id="officialName" required placeholder="例如：DDH01 / 人魚" />
+              <input type="text" id="officialName" placeholder="例如：DDH01 / 人魚" />
             </div>
 
             <div class="field">
@@ -458,6 +458,32 @@
     <div class="dialog-footer">
       <button type="button" class="btn" id="deleteCancelBtn">取消</button>
       <button type="button" class="btn btn-primary" id="deleteConfirmBtn" style="background:var(--danger);">確認刪除</button>
+    </div>
+  </dialog>
+
+  <!-- ===== 裁切 Dialog ===== -->
+  <dialog id="cropDialog" class="crop-dialog">
+    <div class="dialog-header">
+      <h2 class="dialog-title">設定封面裁切</h2>
+      <button type="button" class="btn btn-close" id="cropCloseBtn">✕</button>
+    </div>
+
+    <div class="crop-body">
+      <div class="crop-frame" id="cropFrame">
+        <img id="cropImage" alt="封面裁切預覽" />
+      </div>
+
+      <div class="crop-controls">
+        <label for="cropZoom">縮放</label>
+        <input type="range" id="cropZoom" min="1" max="3" step="0.01" value="1" />
+      </div>
+
+      <p class="crop-hint">拖曳圖片調整位置，使用滑桿縮放。確認後會儲存為 400×400 的封面縮圖。</p>
+    </div>
+
+    <div class="dialog-footer">
+      <button type="button" class="btn" id="cropCancelBtn">取消</button>
+      <button type="button" class="btn btn-primary" id="cropConfirmBtn">確認封面</button>
     </div>
   </dialog>
 

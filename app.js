@@ -336,8 +336,23 @@ async function replaceAllDollsInFirestore(newItems) {
     return imageDirHandle.getDirectoryHandle(sanitizeFileName(itemId), { create: true });
   }
 
+  function stripImageDataForStorage(images) {
+    return normalizeImages(images).map((img) => {
+      const cleaned = {
+        tag: img.tag || "",
+        cover: Boolean(img.cover)
+      };
+
+      if (img.file) cleaned.file = img.file;
+      if (img.url) cleaned.url = img.url;
+      else if (img.data && /^https?:\/\//.test(img.data)) cleaned.url = img.data;
+
+      return cleaned;
+    });
+  }
+
   async function saveImagesToFolder(itemId, images) {
-    if (!imageDirHandle) return images;
+    if (!imageDirHandle) return stripImageDataForStorage(images);
     const dir = await getItemDir(itemId);
     const saved = [];
     for (let i = 0; i < images.length; i++) {
@@ -346,7 +361,23 @@ async function replaceAllDollsInFirestore(newItems) {
         saved.push({ file: img.file, tag: img.tag, cover: img.cover });
         continue;
       }
+      if (img.fileObject) {
+        // 新上傳的檔案
+        const ext = img.fileObject.name.split('.').pop().toLowerCase() || 'jpg';
+        const fileName = `img_${String(i + 1).padStart(3, "0")}.${ext}`;
+        const fh = await dir.getFileHandle(fileName, { create: true });
+        const writable = await fh.createWritable();
+        await writable.write(img.fileObject);
+        await writable.close();
+        saved.push({ file: fileName, tag: img.tag, cover: img.cover });
+        continue;
+      }
+      if (img.url) {
+        saved.push({ url: img.url, tag: img.tag, cover: img.cover });
+        continue;
+      }
       if (!img.data) continue;
+      // 舊格式支援
       const ext = getExtFromDataUrl(img.data);
       const fileName = `img_${String(i + 1).padStart(3, "0")}.${ext}`;
       const fh = await dir.getFileHandle(fileName, { create: true });
@@ -486,6 +517,14 @@ async function replaceAllDollsInFirestore(newItems) {
     officialNameLabel: $("officialNameLabel"),
     faceupArtistLabel: $("faceupArtistLabel"),
     faceupPriceLabel: $("faceupPriceLabel"),
+    // 裁切相關
+    cropDialog: $("cropDialog"),
+    cropCloseBtn: $("cropCloseBtn"),
+    cropFrame: $("cropFrame"),
+    cropImage: $("cropImage"),
+    cropZoom: $("cropZoom"),
+    cropCancelBtn: $("cropCancelBtn"),
+    cropConfirmBtn: $("cropConfirmBtn"),
   };
 
   const fields = {
@@ -546,6 +585,19 @@ async function replaceAllDollsInFirestore(newItems) {
   let items = [];
   let editingId = null;
   let currentImages = [];  // [{ data, tag }]
+
+  let currentCoverThumbnail = "";
+
+  let cropTargetImageIndex = null;
+  let cropSourceDataUrl = "";
+  let cropState = {
+    scale: 1,
+    offsetX: 0,
+    offsetY: 0,
+    dragging: false,
+    startX: 0,
+    startY: 0
+  };
 
   /* --------------------------------------------------
      §4  日期工具
@@ -870,8 +922,19 @@ async function replaceAllDollsInFirestore(newItems) {
   function buildCardHTML(item) {
     const imgs = migrateItemImages(item);
     const coverImg = imgs.find((img) => img.cover) || imgs[0];
+
+    let imgSrc = item.coverThumbnail || PLACEHOLDER_IMG;
+
+    if (coverImg && coverImg.url) {
+      imgSrc = item.coverThumbnail || coverImg.url || PLACEHOLDER_IMG;
+    } else if (coverImg && coverImg.data && /^https?:\/\//.test(coverImg.data)) {
+      imgSrc = item.coverThumbnail || coverImg.data || PLACEHOLDER_IMG;
+    }
+
     const isFileRef = coverImg && coverImg.file && !coverImg.data;
-    const imgSrc = isFileRef ? PLACEHOLDER_IMG : (coverImg ? coverImg.data : PLACEHOLDER_IMG);
+    if (isFileRef) {
+      imgSrc = item.coverThumbnail || PLACEHOLDER_IMG; // 稍後會被 loadImageUrl 替換
+    }
     const tagBadge = coverImg && coverImg.tag
       ? `<span class="card-img-tag">${coverImg.tag}</span>`
       : "";
@@ -943,9 +1006,9 @@ async function replaceAllDollsInFirestore(newItems) {
     if (imageDirHandle) {
       filtered.forEach((item) => {
         const imgs = migrateItemImages(item);
-        const firstImg = imgs[0];
-        if (firstImg && firstImg.file) {
-          loadImageUrl(item.id, firstImg.file).then((url) => {
+        const coverImg = imgs.find((img) => img.cover) || imgs[0];
+        if (coverImg && coverImg.file) {
+          loadImageUrl(item.id, coverImg.file).then((url) => {
             if (!url) return;
             const card = els.list.querySelector(`.card[data-id="${item.id}"] .card-img`);
             if (card) card.src = url;
@@ -961,8 +1024,13 @@ async function replaceAllDollsInFirestore(newItems) {
 
   /* --- 圖片處理 (多圖 + 標籤) --- */
 
-  function addImage(data, tag) {
-    currentImages.push({ data, tag: tag || "", cover: currentImages.length === 0 });
+  function addImage(imgObj) {
+    if (typeof imgObj === "string") {
+      // 舊格式支援
+      currentImages.push({ data: imgObj, tag: "", cover: currentImages.length === 0 });
+    } else {
+      currentImages.push(imgObj);
+    }
     renderImageGallery();
   }
 
@@ -982,6 +1050,7 @@ async function replaceAllDollsInFirestore(newItems) {
     currentImages = currentImages.map((img, idx) => ({ ...img, cover: idx === index }));
     currentImages = normalizeImages(currentImages);
     renderImageGallery();
+    openCropDialogForImage(0);
   }
 
   function removeImage(index) {
@@ -1039,7 +1108,12 @@ async function replaceAllDollsInFirestore(newItems) {
     Array.from(fileList).forEach((file) => {
       if (!file.type.startsWith("image/")) return;
       const reader = new FileReader();
-      reader.onload = (e) => addImage(e.target.result, "");
+      reader.onload = (e) => addImage({
+        fileObject: file,
+        data: e.target.result,
+        tag: "",
+        cover: currentImages.length === 0
+      });
       reader.readAsDataURL(file);
     });
   }
@@ -1047,7 +1121,12 @@ async function replaceAllDollsInFirestore(newItems) {
   function handleAddUrlImage() {
     const url = els.imageUrlInput.value.trim();
     if (!url) return;
-    addImage(url, "");
+    addImage({
+      url,
+      data: url,
+      tag: "",
+      cover: currentImages.length === 0
+    });
     els.imageUrlInput.value = "";
   }
 
@@ -1071,6 +1150,7 @@ async function replaceAllDollsInFirestore(newItems) {
     els.dialogTitle.textContent = "新增收藏";
     els.form.reset();
     currentImages = [];
+    currentCoverThumbnail = "";
     renderImageGallery();
     els.bodySearchInput.value = "";
     fields.selectedBodyId.value = "";
@@ -1148,6 +1228,8 @@ async function replaceAllDollsInFirestore(newItems) {
       currentImages = normalizeImages(migrateItemImages(item));
       renderImageGallery();
     }
+
+    currentCoverThumbnail = item.coverThumbnail || "";
 
     els.bodySearchInput.value = "";
     fields.selectedBodyId.value = item.selectedBodyId || "";
@@ -1248,7 +1330,8 @@ async function replaceAllDollsInFirestore(newItems) {
       faceupPaid: parseFloat(fields.faceupPaid.value) || 0,
       faceupBalance: parseFloat(fields.faceupBalance.value) || 0,
       notes: fields.notes.value,
-      images: normalizeImages(currentImages.slice()),
+      coverThumbnail: currentCoverThumbnail,
+      images: stripImageDataForStorage(currentImages.slice()),
       hasBodyMakeup: fields.hasBodyMakeup.value,
       bodySource: fields.bodySource.value,
       selectedBodyId: fields.selectedBodyId.value,
@@ -1317,8 +1400,22 @@ async function replaceAllDollsInFirestore(newItems) {
       return;
     }
 
+    // 驗證：名稱或官方型號至少要填一個
+    const nameValue = fields.name.value.trim();
+    const officialNameValue = fields.officialName.value.trim();
+    if (!nameValue && !officialNameValue) {
+      alert("請至少填寫「名稱」或「官方型號」其中一個欄位");
+      return;
+    }
+
     let data = collectFormData();
     currentImages = normalizeImages(currentImages);
+
+    // 提醒封面縮圖
+    if (currentImages.length > 0 && !currentCoverThumbnail) {
+      const ok = confirm("尚未設定封面裁切縮圖，換設備時可能看不到封面。是否仍要儲存？");
+      if (!ok) return;
+    }
 
     if (imageDirHandle) {
       try {
@@ -1335,6 +1432,12 @@ async function replaceAllDollsInFirestore(newItems) {
         data.bodySource === "new" &&
         fields.bodyOfficialName.value.trim()
       ) {
+        // 驗證素體官方型號
+        if (!fields.bodyOfficialName.value.trim()) {
+          alert("請填寫素體官方型號");
+          return;
+        }
+
         let bodyItem = buildBodyItemFromForm(data.id);
 
         const existingBody = items.find(
@@ -1794,6 +1897,165 @@ async function replaceAllDollsInFirestore(newItems) {
           break;
       }
     });
+
+    // 裁切 Dialog 事件
+    els.cropCloseBtn.addEventListener("click", closeCropDialog);
+    els.cropCancelBtn.addEventListener("click", closeCropDialog);
+    els.cropConfirmBtn.addEventListener("click", () => {
+      const cropped = createCroppedThumbnail();
+      if (cropped) {
+        currentCoverThumbnail = cropped;
+        closeCropDialog();
+      } else {
+        alert("裁切失敗，請檢查圖片來源");
+      }
+    });
+
+    // 裁切互動
+    els.cropFrame.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      cropState.dragging = true;
+      cropState.startX = e.clientX - cropState.offsetX;
+      cropState.startY = e.clientY - cropState.offsetY;
+      els.cropFrame.classList.add("dragging");
+    });
+
+    window.addEventListener("pointermove", (e) => {
+      if (!cropState.dragging) return;
+      e.preventDefault();
+      cropState.offsetX = e.clientX - cropState.startX;
+      cropState.offsetY = e.clientY - cropState.startY;
+      updateCropPreview();
+    });
+
+    window.addEventListener("pointerup", () => {
+      cropState.dragging = false;
+      els.cropFrame.classList.remove("dragging");
+    });
+
+    window.addEventListener("pointercancel", () => {
+      cropState.dragging = false;
+      els.cropFrame.classList.remove("dragging");
+    });
+
+    els.cropZoom.addEventListener("input", (e) => {
+      cropState.scale = parseFloat(e.target.value);
+      updateCropPreview();
+    });
+
+    }
+
+  /* --------------------------------------------------
+     §11  裁切功能
+     -------------------------------------------------- */
+
+  async function openCropDialogForImage(index) {
+    const img = currentImages[index];
+    if (!img) return;
+
+    cropTargetImageIndex = index;
+    cropSourceDataUrl = img.data || img.url || "";
+
+    if (!cropSourceDataUrl) {
+      alert("無法取得圖片來源");
+      return;
+    }
+
+    // 重置狀態
+    cropState.scale = 1;
+    cropState.offsetX = 0;
+    cropState.offsetY = 0;
+    cropState.dragging = false;
+
+    // 設定圖片
+    els.cropImage.src = cropSourceDataUrl;
+    els.cropImage.onload = () => {
+      updateCropPreview();
+    };
+
+    // 顯示 Dialog
+    els.cropDialog.showModal();
+  }
+
+  function updateCropPreview() {
+    const img = els.cropImage;
+    const frame = els.cropFrame;
+    const frameRect = frame.getBoundingClientRect();
+
+    // 計算基礎縮放，讓圖片至少 cover 正方形
+    const scaleX = frameRect.width / img.naturalWidth;
+    const scaleY = frameRect.height / img.naturalHeight;
+    const baseScale = Math.max(scaleX, scaleY);
+
+    // 應用用戶縮放
+    const finalScale = baseScale * cropState.scale;
+
+    // 應用偏移，但限制不讓圖片露出空白
+    let offsetX = cropState.offsetX;
+    let offsetY = cropState.offsetY;
+
+    const imgWidth = img.naturalWidth * finalScale;
+    const imgHeight = img.naturalHeight * finalScale;
+
+    // 計算允許的偏移範圍
+    const maxOffsetX = (imgWidth - frameRect.width) / 2;
+    const maxOffsetY = (imgHeight - frameRect.height) / 2;
+
+    offsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, offsetX));
+    offsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, offsetY));
+
+    // 更新狀態
+    cropState.offsetX = offsetX;
+    cropState.offsetY = offsetY;
+
+    img.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${finalScale})`;
+  }
+
+  function createCroppedThumbnail() {
+    const img = els.cropImage;
+    const frame = els.cropFrame;
+    const frameRect = frame.getBoundingClientRect();
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 400;
+    canvas.height = 400;
+    const ctx = canvas.getContext("2d");
+
+    // 計算基礎縮放，讓圖片至少 cover 正方形
+    const scaleX = frameRect.width / img.naturalWidth;
+    const scaleY = frameRect.height / img.naturalHeight;
+    const baseScale = Math.max(scaleX, scaleY);
+    const finalScale = baseScale * cropState.scale;
+
+    // 圖片在裁切框中的實際位置（考慮初始居中）
+    const imgCenterX = frameRect.width / 2;
+    const imgCenterY = frameRect.height / 2;
+    const imgLeft = imgCenterX - (img.naturalWidth * finalScale) / 2 + cropState.offsetX;
+    const imgTop = imgCenterY - (img.naturalHeight * finalScale) / 2 + cropState.offsetY;
+
+    // 裁切區域相對於圖片的坐標
+    const cropX = -imgLeft / finalScale;
+    const cropY = -imgTop / finalScale;
+    const cropWidth = frameRect.width / finalScale;
+    const cropHeight = frameRect.height / finalScale;
+
+    try {
+      ctx.drawImage(
+        img,
+        cropX, cropY, cropWidth, cropHeight,
+        0, 0, 400, 400
+      );
+      return canvas.toDataURL("image/jpeg", 0.7);
+    } catch (err) {
+      console.error("裁切失敗:", err);
+      return null;
+    }
+  }
+
+  function closeCropDialog() {
+    els.cropDialog.close();
+    cropTargetImageIndex = null;
+    cropSourceDataUrl = "";
   }
 
   /* --------------------------------------------------

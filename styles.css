@@ -881,3 +881,58 @@ form h3 {
     grid-template-columns: 1fr;
   }
 }
+
+/* --- Crop Dialog --- */
+.crop-dialog {
+  width: min(460px, 92vw);
+  border: none;
+  border-radius: 18px;
+  padding: 0;
+}
+
+.crop-body {
+  padding: 20px 24px;
+}
+
+.crop-frame {
+  position: relative;
+  width: min(320px, 78vw);
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  margin: 0 auto;
+  background: #eee;
+  border-radius: 16px;
+  touch-action: none;
+}
+
+.crop-frame img {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  max-width: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  cursor: grab;
+  transform-origin: center center;
+}
+
+.crop-frame.dragging img {
+  cursor: grabbing;
+}
+
+.crop-controls {
+  margin-top: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.crop-controls input[type="range"] {
+  width: 100%;
+}
+
+.crop-hint {
+  margin: 12px 0 0;
+  font-size: 13px;
+  opacity: 0.75;
+  line-height: 1.6;
+}
