@@ -14,7 +14,7 @@
     <button type="button" id="logoutBtn" style="display: none;">登出</button>
   </div>
 
-  <p style="font-size: smaller; margin: 5px 0 0 0; color: #666;">
+  <p style="font-size: smaller; margin: 5px 0 0 0; color: #666; text-align: center;">
     請先使用 Google 登入。登入後，收藏資料會儲存在雲端，並可在不同裝置讀取。＊請注意，未被授權的Google帳號無法使用＊
   </p>
 
@@ -458,32 +458,6 @@
     <div class="dialog-footer">
       <button type="button" class="btn" id="deleteCancelBtn">取消</button>
       <button type="button" class="btn btn-primary" id="deleteConfirmBtn" style="background:var(--danger);">確認刪除</button>
-    </div>
-  </dialog>
-
-  <!-- ===== 裁切 Dialog ===== -->
-  <dialog id="cropDialog" class="crop-dialog">
-    <div class="dialog-header">
-      <h2 class="dialog-title">設定封面裁切</h2>
-      <button type="button" class="btn btn-close" id="cropCloseBtn">✕</button>
-    </div>
-
-    <div class="crop-body">
-      <div class="crop-frame" id="cropFrame">
-        <img id="cropImage" alt="封面裁切預覽" />
-      </div>
-
-      <div class="crop-controls">
-        <label for="cropZoom">縮放</label>
-        <input type="range" id="cropZoom" min="1" max="3" step="0.01" value="1" />
-      </div>
-
-      <p class="crop-hint">拖曳圖片調整位置，使用滑桿縮放。確認後會儲存為 400×400 的封面縮圖。</p>
-    </div>
-
-    <div class="dialog-footer">
-      <button type="button" class="btn" id="cropCancelBtn">取消</button>
-      <button type="button" class="btn btn-primary" id="cropConfirmBtn">確認封面</button>
     </div>
   </dialog>
 

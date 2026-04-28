@@ -336,6 +336,47 @@ async function replaceAllDollsInFirestore(newItems) {
     return imageDirHandle.getDirectoryHandle(sanitizeFileName(itemId), { create: true });
   }
 
+  async function createResizedThumbnailFromSource(source, maxWidth = 400, quality = 0.7) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+
+      img.onload = () => {
+        try {
+          const scale = Math.min(1, maxWidth / img.naturalWidth);
+          const width = Math.round(img.naturalWidth * scale);
+          const height = Math.round(img.naturalHeight * scale);
+
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const dataUrl = canvas.toDataURL("image/jpeg", quality);
+          resolve(dataUrl);
+        } catch (err) {
+          reject(err);
+        }
+      };
+
+      img.onerror = reject;
+
+      if (source instanceof File) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          img.src = reader.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(source);
+      } else {
+        // URL 或 dataURL
+        img.crossOrigin = "anonymous";
+        img.src = source;
+      }
+    });
+  }
+
   function stripImageDataForStorage(images) {
     return normalizeImages(images).map((img) => {
       const cleaned = {
@@ -517,14 +558,6 @@ async function replaceAllDollsInFirestore(newItems) {
     officialNameLabel: $("officialNameLabel"),
     faceupArtistLabel: $("faceupArtistLabel"),
     faceupPriceLabel: $("faceupPriceLabel"),
-    // 裁切相關
-    cropDialog: $("cropDialog"),
-    cropCloseBtn: $("cropCloseBtn"),
-    cropFrame: $("cropFrame"),
-    cropImage: $("cropImage"),
-    cropZoom: $("cropZoom"),
-    cropCancelBtn: $("cropCancelBtn"),
-    cropConfirmBtn: $("cropConfirmBtn"),
   };
 
   const fields = {
@@ -587,17 +620,6 @@ async function replaceAllDollsInFirestore(newItems) {
   let currentImages = [];  // [{ data, tag }]
 
   let currentCoverThumbnail = "";
-
-  let cropTargetImageIndex = null;
-  let cropSourceDataUrl = "";
-  let cropState = {
-    scale: 1,
-    offsetX: 0,
-    offsetY: 0,
-    dragging: false,
-    startX: 0,
-    startY: 0
-  };
 
   /* --------------------------------------------------
      §4  日期工具
@@ -1046,11 +1068,25 @@ async function replaceAllDollsInFirestore(newItems) {
     return normalized;
   }
 
-  function setCoverImage(index) {
+  async function setCoverImage(index) {
     currentImages = currentImages.map((img, idx) => ({ ...img, cover: idx === index }));
     currentImages = normalizeImages(currentImages);
     renderImageGallery();
-    openCropDialogForImage(0);
+
+    const coverImg = currentImages[0];
+
+    try {
+      if (coverImg.fileObject) {
+        currentCoverThumbnail = await createResizedThumbnailFromSource(coverImg.fileObject, 400, 0.7);
+      } else if (coverImg.data) {
+        currentCoverThumbnail = await createResizedThumbnailFromSource(coverImg.data, 400, 0.7);
+      } else if (coverImg.url) {
+        currentCoverThumbnail = await createResizedThumbnailFromSource(coverImg.url, 400, 0.7);
+      }
+    } catch (err) {
+      console.warn("封面縮圖產生失敗：", err);
+      alert("封面縮圖產生失敗。若是圖片網址，可能是該網站不允許跨域讀取圖片。你仍可使用此圖片，但換設備時可能沒有封面縮圖。");
+    }
   }
 
   function removeImage(index) {
@@ -1107,26 +1143,53 @@ async function replaceAllDollsInFirestore(newItems) {
   function handleImageFiles(fileList) {
     Array.from(fileList).forEach((file) => {
       if (!file.type.startsWith("image/")) return;
+
+      const isFirstImage = currentImages.length === 0;
+
       const reader = new FileReader();
-      reader.onload = (e) => addImage({
-        fileObject: file,
-        data: e.target.result,
-        tag: "",
-        cover: currentImages.length === 0
-      });
+      reader.onload = async (e) => {
+        addImage({
+          fileObject: file,
+          data: e.target.result,
+          tag: "",
+          cover: isFirstImage
+        });
+
+        if (isFirstImage) {
+          try {
+            currentCoverThumbnail = await createResizedThumbnailFromSource(file, 400, 0.7);
+          } catch (err) {
+            console.warn("第一張封面縮圖產生失敗：", err);
+          }
+        }
+      };
+
       reader.readAsDataURL(file);
     });
   }
 
-  function handleAddUrlImage() {
+  async function handleAddUrlImage() {
     const url = els.imageUrlInput.value.trim();
     if (!url) return;
+
+    const isFirstImage = currentImages.length === 0;
+
     addImage({
       url,
       data: url,
       tag: "",
-      cover: currentImages.length === 0
+      cover: isFirstImage
     });
+
+    if (isFirstImage) {
+      try {
+        currentCoverThumbnail = await createResizedThumbnailFromSource(url, 400, 0.7);
+      } catch (err) {
+        console.warn("URL 圖片封面縮圖產生失敗：", err);
+        alert("此圖片網址可能不允許產生縮圖，但仍可作為圖片網址顯示。換設備時若網址有效，仍可顯示該圖片。");
+      }
+    }
+
     els.imageUrlInput.value = "";
   }
 
@@ -1413,8 +1476,7 @@ async function replaceAllDollsInFirestore(newItems) {
 
     // 提醒封面縮圖
     if (currentImages.length > 0 && !currentCoverThumbnail) {
-      const ok = confirm("尚未設定封面裁切縮圖，換設備時可能看不到封面。是否仍要儲存？");
-      if (!ok) return;
+      console.warn("此筆收藏目前沒有封面縮圖，換設備時可能看不到封面。");
     }
 
     if (imageDirHandle) {
@@ -1767,11 +1829,11 @@ async function replaceAllDollsInFirestore(newItems) {
     els.addUrlImageBtn.addEventListener("click", handleAddUrlImage);
 
     // 圖片庫事件委派（移除 / 設為封面 / 標籤選擇 / 自訂標籤輸入）
-    els.imageGallery.addEventListener("click", (e) => {
+    els.imageGallery.addEventListener("click", async (e) => {
       const coverBtn = e.target.closest("[data-role='cover']");
       if (coverBtn) {
         const item = coverBtn.closest(".gallery-item");
-        setCoverImage(Number(item.dataset.idx));
+        await setCoverImage(Number(item.dataset.idx));
         return;
       }
 
@@ -1949,117 +2011,8 @@ async function replaceAllDollsInFirestore(newItems) {
      §11  裁切功能
      -------------------------------------------------- */
 
-  async function openCropDialogForImage(index) {
-    const img = currentImages[index];
-    if (!img) return;
-
-    cropTargetImageIndex = index;
-    cropSourceDataUrl = img.data || img.url || "";
-
-    if (!cropSourceDataUrl) {
-      alert("無法取得圖片來源");
-      return;
-    }
-
-    // 重置狀態
-    cropState.scale = 1;
-    cropState.offsetX = 0;
-    cropState.offsetY = 0;
-    cropState.dragging = false;
-
-    // 設定圖片
-    els.cropImage.src = cropSourceDataUrl;
-    els.cropImage.onload = () => {
-      updateCropPreview();
-    };
-
-    // 顯示 Dialog
-    els.cropDialog.showModal();
-  }
-
-  function updateCropPreview() {
-    const img = els.cropImage;
-    const frame = els.cropFrame;
-    const frameRect = frame.getBoundingClientRect();
-
-    // 計算基礎縮放，讓圖片至少 cover 正方形
-    const scaleX = frameRect.width / img.naturalWidth;
-    const scaleY = frameRect.height / img.naturalHeight;
-    const baseScale = Math.max(scaleX, scaleY);
-
-    // 應用用戶縮放
-    const finalScale = baseScale * cropState.scale;
-
-    // 應用偏移，但限制不讓圖片露出空白
-    let offsetX = cropState.offsetX;
-    let offsetY = cropState.offsetY;
-
-    const imgWidth = img.naturalWidth * finalScale;
-    const imgHeight = img.naturalHeight * finalScale;
-
-    // 計算允許的偏移範圍
-    const maxOffsetX = (imgWidth - frameRect.width) / 2;
-    const maxOffsetY = (imgHeight - frameRect.height) / 2;
-
-    offsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, offsetX));
-    offsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, offsetY));
-
-    // 更新狀態
-    cropState.offsetX = offsetX;
-    cropState.offsetY = offsetY;
-
-    img.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${finalScale})`;
-  }
-
-  function createCroppedThumbnail() {
-    const img = els.cropImage;
-    const frame = els.cropFrame;
-    const frameRect = frame.getBoundingClientRect();
-
-    const canvas = document.createElement("canvas");
-    canvas.width = 400;
-    canvas.height = 400;
-    const ctx = canvas.getContext("2d");
-
-    // 計算基礎縮放，讓圖片至少 cover 正方形
-    const scaleX = frameRect.width / img.naturalWidth;
-    const scaleY = frameRect.height / img.naturalHeight;
-    const baseScale = Math.max(scaleX, scaleY);
-    const finalScale = baseScale * cropState.scale;
-
-    // 圖片在裁切框中的實際位置（考慮初始居中）
-    const imgCenterX = frameRect.width / 2;
-    const imgCenterY = frameRect.height / 2;
-    const imgLeft = imgCenterX - (img.naturalWidth * finalScale) / 2 + cropState.offsetX;
-    const imgTop = imgCenterY - (img.naturalHeight * finalScale) / 2 + cropState.offsetY;
-
-    // 裁切區域相對於圖片的坐標
-    const cropX = -imgLeft / finalScale;
-    const cropY = -imgTop / finalScale;
-    const cropWidth = frameRect.width / finalScale;
-    const cropHeight = frameRect.height / finalScale;
-
-    try {
-      ctx.drawImage(
-        img,
-        cropX, cropY, cropWidth, cropHeight,
-        0, 0, 400, 400
-      );
-      return canvas.toDataURL("image/jpeg", 0.7);
-    } catch (err) {
-      console.error("裁切失敗:", err);
-      return null;
-    }
-  }
-
-  function closeCropDialog() {
-    els.cropDialog.close();
-    cropTargetImageIndex = null;
-    cropSourceDataUrl = "";
-  }
-
   /* --------------------------------------------------
-     §12  初始化
+     §11  初始化
      -------------------------------------------------- */
 
   async function init() {
