@@ -127,6 +127,112 @@ supabase.auth.onAuthStateChange((event, session) => {
    Supabase 資料操作函式
    ======================================== */
 
+function convertToSnakeCase(data) {
+  const mapping = {
+    name: 'doll_name',
+    officialName: 'official_name',
+    bjdType: 'doll_type',
+    skinColor: 'skin_color',
+    paidAmount: 'paid_amount',
+    balanceAmount: 'balance_amount',
+    balanceDate: 'balance_date',
+    currency: 'currency',
+    price: 'price',
+    source: 'source',
+    purchaseDate: 'purchase_date',
+    arrivalDate: 'arrival_date',
+    leadTime: 'lead_time',
+    faceupStatus: 'makeup_status',
+    faceupType: 'makeup_type',
+    faceupNotes: 'makeup_notes',
+    faceupSendDate: 'makeup_send_date',
+    faceupDoneDate: 'makeup_done_date',
+    faceupLeadTime: 'makeup_lead_time',
+    faceupArtist: 'makeup_artist',
+    faceupCurrency: 'makeup_currency',
+    faceupPrice: 'makeup_price',
+    faceupPaid: 'makeup_paid',
+    faceupBalance: 'makeup_balance',
+    notes: 'notes',
+    coverThumbnail: 'cover_thumbnail',
+    images: 'images',
+    hasBodyMakeup: 'has_body_makeup',
+    bodySource: 'body_source',
+    selectedBodyId: 'selected_body_id',
+    bodyCompany: 'body_company',
+    bodyOfficialName: 'body_official_name',
+    bodySize: 'body_size',
+    bodySkinColor: 'body_skin_color',
+    bodyHasBodyMakeup: 'body_has_body_makeup',
+    bodyFaceupArtist: 'body_makeup_artist',
+    bodyFaceupType: 'body_makeup_type',
+    bodyFaceupCurrency: 'body_makeup_currency',
+    bodyFaceupPrice: 'body_makeup_price',
+    bodyFaceupSendDate: 'body_makeup_send_date',
+    bodyFaceupDoneDate: 'body_makeup_done_date',
+    bodyFaceupLeadTime: 'body_makeup_lead_time'
+  };
+
+  const converted = {};
+  for (const [key, value] of Object.entries(data)) {
+    converted[mapping[key] || key] = value;
+  }
+  return converted;
+}
+
+function convertFromSnakeCase(data) {
+  const reverseMapping = {
+    doll_name: 'name',
+    official_name: 'officialName',
+    doll_type: 'bjdType',
+    skin_color: 'skinColor',
+    paid_amount: 'paidAmount',
+    balance_amount: 'balanceAmount',
+    balance_date: 'balanceDate',
+    currency: 'currency',
+    price: 'price',
+    source: 'source',
+    purchase_date: 'purchaseDate',
+    arrival_date: 'arrivalDate',
+    lead_time: 'leadTime',
+    makeup_status: 'faceupStatus',
+    makeup_type: 'faceupType',
+    makeup_notes: 'faceupNotes',
+    makeup_send_date: 'faceupSendDate',
+    makeup_done_date: 'faceupDoneDate',
+    makeup_lead_time: 'faceupLeadTime',
+    makeup_artist: 'faceupArtist',
+    makeup_currency: 'faceupCurrency',
+    makeup_price: 'faceupPrice',
+    makeup_paid: 'faceupPaid',
+    makeup_balance: 'faceupBalance',
+    notes: 'notes',
+    cover_thumbnail: 'coverThumbnail',
+    images: 'images',
+    has_body_makeup: 'hasBodyMakeup',
+    body_source: 'bodySource',
+    selected_body_id: 'selectedBodyId',
+    body_company: 'bodyCompany',
+    body_official_name: 'bodyOfficialName',
+    body_size: 'bodySize',
+    body_skin_color: 'bodySkinColor',
+    body_has_body_makeup: 'bodyHasBodyMakeup',
+    body_makeup_artist: 'bodyFaceupArtist',
+    body_makeup_type: 'bodyFaceupType',
+    body_makeup_currency: 'bodyFaceupCurrency',
+    body_makeup_price: 'bodyFaceupPrice',
+    body_makeup_send_date: 'bodyFaceupSendDate',
+    body_makeup_done_date: 'bodyFaceupDoneDate',
+    body_makeup_lead_time: 'bodyFaceupLeadTime'
+  };
+
+  const converted = {};
+  for (const [key, value] of Object.entries(data)) {
+    converted[reverseMapping[key] || key] = value;
+  }
+  return converted;
+}
+
 async function loadDollsFromSupabase() {
   if (!currentUser) return [];
 
@@ -143,7 +249,7 @@ async function loadDollsFromSupabase() {
 
   const dolls = (data || []).map(row => ({
     id: row.id,
-    ...row
+    ...convertFromSnakeCase(row)
   }));
 
   console.log("從 Supabase 讀到的娃娃資料：", dolls);
@@ -165,7 +271,7 @@ async function addDollToSupabase(dollData) {
       {
         id,
         user_id: currentUser.id,
-        ...dollData,
+        ...convertToSnakeCase(dollData),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
@@ -189,7 +295,7 @@ async function updateDollInSupabase(dollId, updatedData) {
   const { error } = await supabase
     .from("dolls")
     .update({
-      ...updatedData,
+      ...convertToSnakeCase(updatedData),
       updated_at: new Date().toISOString()
     })
     .eq("id", dollId)
@@ -241,7 +347,7 @@ async function replaceAllDollsInSupabase(newItems) {
   const itemsToInsert = newItems.map(item => ({
     id: item.id || Date.now().toString() + "_" + Math.random().toString(36).slice(2),
     user_id: currentUser.id,
-    ...item,
+    ...convertToSnakeCase(item),
     created_at: now,
     updated_at: now
   }));
