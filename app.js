@@ -33,7 +33,22 @@ const app = initializeApp(firebaseConfig);
 
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
+const testAddBtn = document.getElementById("testAddBtn");
 
+testAddBtn.addEventListener("click", async () => {
+  await addDollToFirestore({
+    name: "測試娃娃",
+    company: "測試娃社",
+    officialName: "Test Doll",
+    price: 0,
+    faceupArtist: "",
+    faceupType: "",
+    faceupPrice: 0,
+    imageUrl: ""
+  });
+
+  alert("測試資料已新增到 Firestore");
+});
 /* ========================================
    Firestore 初始化
    ======================================== */
