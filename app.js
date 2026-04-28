@@ -8,6 +8,17 @@ import {
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
 
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  doc,
+  updateDoc,
+  deleteDoc,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyDC7m1RdpFf0MLTjwQ1xbJ-07ohXgxJ6UU",
   authDomain: "bjdcollect.firebaseapp.com",
@@ -22,6 +33,12 @@ const app = initializeApp(firebaseConfig);
 
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
+
+/* ========================================
+   Firestore 初始化
+   ======================================== */
+const db = getFirestore(app);
+let currentUser = null;
 
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
@@ -47,17 +64,87 @@ logoutBtn.addEventListener("click", async () => {
 
 onAuthStateChanged(auth, (user) => {
   if (user) {
+    currentUser = user;
     loginBtn.style.display = "none";
     logoutBtn.style.display = "inline-block";
     userInfo.textContent = `已登入：${user.displayName || user.email}`;
 
     console.log("使用者 UID：", user.uid);
   } else {
+    currentUser = null;
     loginBtn.style.display = "inline-block";
     logoutBtn.style.display = "none";
     userInfo.textContent = "尚未登入";
   }
 });
+
+/* ========================================
+   Firestore 資料操作函式
+   ======================================== */
+
+async function loadDollsFromFirestore() {
+  if (!currentUser) return;
+
+  const dollsRef = collection(db, "users", currentUser.uid, "dolls");
+  const snapshot = await getDocs(dollsRef);
+
+  const dolls = [];
+
+  snapshot.forEach((docSnap) => {
+    dolls.push({
+      id: docSnap.id,
+      ...docSnap.data()
+    });
+  });
+
+  console.log("從 Firestore 讀到的娃娃資料：", dolls);
+
+  return dolls;
+}
+
+async function addDollToFirestore(dollData) {
+  if (!currentUser) {
+    alert("請先登入");
+    return;
+  }
+
+  const dollsRef = collection(db, "users", currentUser.uid, "dolls");
+
+  await addDoc(dollsRef, {
+    ...dollData,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+
+  return await loadDollsFromFirestore();
+}
+
+async function updateDollInFirestore(dollId, updatedData) {
+  if (!currentUser) {
+    alert("請先登入");
+    return;
+  }
+
+  const dollRef = doc(db, "users", currentUser.uid, "dolls", dollId);
+
+  await updateDoc(dollRef, {
+    ...updatedData,
+    updatedAt: serverTimestamp()
+  });
+
+  return await loadDollsFromFirestore();
+}
+
+async function deleteDollFromFirestore(dollId) {
+  if (!currentUser) {
+    alert("請先登入");
+    return;
+  }
+
+  await deleteDoc(doc(db, "users", currentUser.uid, "dolls", dollId));
+
+  return await loadDollsFromFirestore();
+}
 /* ========================================
    BJD 收藏資料庫 — 主程式
    ======================================== */
@@ -682,10 +769,12 @@ onAuthStateChanged(auth, (user) => {
   }
 
   /* --------------------------------------------------
-     §6  資料持久化 (localStorage)
+     §6  資料持久化 (localStorage → Firestore 遷移中)
+     【TODO】以下使用 localStorage，日後需遷移至 Firestore
      -------------------------------------------------- */
 
   function loadData() {
+    // 【TODO】改成：const dolls = await loadDollsFromFirestore();
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) items = JSON.parse(saved);
 
@@ -701,6 +790,7 @@ onAuthStateChanged(auth, (user) => {
   }
 
   function saveData() {
+    // 【TODO】改成：await addDollToFirestore(data); 或 await updateDollInFirestore(id, data);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
     refreshCompanyFilter();
     render();
