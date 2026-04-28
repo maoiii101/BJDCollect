@@ -421,7 +421,6 @@ form h3 {
   grid-column: span 2;
 }
 
-
 /* --- Image Upload Zone --- */
 .upload-zone {
   position: relative;
@@ -863,7 +862,6 @@ form h3 {
   color: white;
 }
 
-
 .image-hint {
   font-size: 11px;
   color: var(--muted);
@@ -882,57 +880,317 @@ form h3 {
   }
 }
 
-/* --- Crop Dialog --- */
-.crop-dialog {
-  width: min(460px, 92vw);
-  border: none;
-  border-radius: 18px;
-  padding: 0;
+/* ========================================
+   Compact UI Override — 緊湊資料庫卡片版
+   ======================================== */
+
+/* --- 整體縮小留白 --- */
+:root {
+  --shadow: 0 6px 18px rgba(90, 62, 50, 0.10);
+  --radius: 16px;
 }
 
-.crop-body {
-  padding: 20px 24px;
+body {
+  padding-bottom: 32px;
 }
 
-.crop-frame {
-  position: relative;
-  width: min(320px, 78vw);
-  aspect-ratio: 1 / 1;
-  overflow: hidden;
-  margin: 0 auto;
-  background: #eee;
-  border-radius: 16px;
-  touch-action: none;
+header {
+  padding: 28px 16px 20px;
 }
 
-.crop-frame img {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  max-width: none;
-  user-select: none;
-  -webkit-user-drag: none;
-  cursor: grab;
-  transform-origin: center center;
+h1 {
+  font-size: 32px;
 }
 
-.crop-frame.dragging img {
-  cursor: grabbing;
+h1 span {
+  font-size: 11px;
+  letter-spacing: 3px;
+  margin-top: 4px;
 }
 
-.crop-controls {
-  margin-top: 18px;
-  display: grid;
+.auth-bar {
+  gap: 10px;
+  padding: 10px 14px;
+}
+
+#userInfo {
+  font-size: 12px;
+}
+
+#loginBtn,
+#logoutBtn {
+  padding: 7px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.app {
+  width: min(1280px, calc(100% - 24px));
+}
+
+/* --- 工具列縮小 --- */
+.toolbar {
   gap: 8px;
+  padding: 10px;
+  border-radius: 16px;
+  margin-bottom: 16px;
+  top: 8px;
 }
 
-.crop-controls input[type="range"] {
+.toolbar input,
+.toolbar select,
+.export-select {
+  padding: 7px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  min-height: 34px;
+}
+
+.toolbar input[type="search"] {
+  min-width: 180px;
+}
+
+.toolbar .btn,
+.toolbar button {
+  padding: 7px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  min-height: 34px;
+}
+
+/* 圖片路徑列縮小 */
+.dir-bar {
+  padding: 8px 12px;
+  gap: 8px;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.dir-bar-path {
+  max-width: 220px;
+  padding: 3px 8px;
+}
+
+/* --- 卡片列表改成緊湊橫向卡 --- */
+.grid {
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 10px;
+}
+
+.card {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  grid-template-rows: auto auto;
+  gap: 8px 10px;
+  padding: 10px;
+  min-height: 118px;
+  border-radius: 16px;
+  overflow: hidden;
+  align-items: start;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(90, 62, 50, 0.14);
+}
+
+/* 卡片圖片縮小 */
+.card-img-wrapper {
+  grid-row: 1 / span 2;
+  width: 96px;
+  height: 116px;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  background: #fdf6f2;
+}
+
+.card-img {
   width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  object-fit: cover;
+  border-bottom: none;
+  display: block;
 }
 
+/* 圖片角標縮小 */
+.card-img-tag {
+  bottom: 5px;
+  left: 5px;
+  font-size: 10px;
+  padding: 2px 6px;
+}
+
+.card-img-count {
+  top: 5px;
+  right: 5px;
+  font-size: 10px;
+  padding: 2px 6px;
+}
+
+/* 文字區縮小 */
+.card-content {
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.card-type {
+  padding: 2px 7px;
+  border-radius: 7px;
+  font-size: 10px;
+  margin-bottom: 2px;
+  width: fit-content;
+}
+
+.card-title {
+  font-size: 15px;
+  line-height: 1.25;
+  margin: 0;
+  color: #4a3b34;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-subtitle {
+  font-size: 12px;
+  line-height: 1.3;
+  margin-bottom: 2px;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 資訊改成一行行緊湊排 */
+.card-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  margin: 2px 0 0;
+  font-size: 11px;
+}
+
+.card-info > div {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+}
+
+.info-label {
+  font-size: 10px;
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.info-value {
+  font-size: 11px;
+  font-weight: 600;
+  color: #5a4b44;
+}
+
+/* 狀態小標籤 */
+.card-status {
+  width: fit-content;
+  font-size: 10px;
+  padding: 3px 8px;
+  margin-top: 2px;
+}
+
+/* 按鈕縮小，放在右側文字下方 */
+.card-actions {
+  grid-column: 2;
+  padding: 0;
+  margin-top: 2px;
+  border-top: none;
+  display: flex;
+  gap: 6px;
+  align-self: end;
+}
+
+.card-actions .btn {
+  padding: 5px 9px;
+  border-radius: 9px;
+  font-size: 11px;
+  min-height: 26px;
+}
+
+.card-actions .btn-flex {
+  flex: 0 0 auto;
+}
+
+/* --- 不再使用裁切功能，隱藏殘留樣式目標 --- */
+.crop-dialog,
+.crop-body,
+.crop-frame,
+.crop-controls,
 .crop-hint {
-  margin: 12px 0 0;
-  font-size: 13px;
-  opacity: 0.75;
-  line-height: 1.6;
+  display: none !important;
+}
+
+/* --- 手機版更緊湊 --- */
+@media (max-width: 700px) {
+  header {
+    padding: 22px 12px 16px;
+  }
+
+  h1 {
+    font-size: 26px;
+  }
+
+  .app {
+    width: min(100% - 16px, 1280px);
+  }
+
+  .toolbar {
+    align-items: stretch;
+    gap: 7px;
+    margin-bottom: 12px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .card {
+    grid-template-columns: 82px 1fr;
+    gap: 7px 9px;
+    padding: 8px;
+    min-height: 100px;
+  }
+
+  .card-img-wrapper {
+    width: 82px;
+    height: 100px;
+    border-radius: 10px;
+  }
+
+  .card-title {
+    font-size: 14px;
+  }
+
+  .card-subtitle,
+  .info-value {
+    font-size: 10.5px;
+  }
+
+  .info-label,
+  .card-type,
+  .card-status {
+    font-size: 10px;
+  }
+
+  .card-actions .btn {
+    font-size: 10.5px;
+    padding: 4px 8px;
+    min-height: 24px;
+  }
 }
