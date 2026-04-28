@@ -1,3 +1,20 @@
+const testAddBtn = document.getElementById("testAddBtn");
+
+testAddBtn.addEventListener("click", async () => {
+  await addDollToFirestore({
+    name: "測試娃娃",
+    company: "測試娃社",
+    officialName: "Test Doll",
+    price: 0,
+    faceupArtist: "",
+    faceupType: "",
+    faceupPrice: 0,
+    imageUrl: ""
+  });
+
+  alert("測試資料已新增到 Firestore");
+});
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
 
 import {
@@ -33,22 +50,7 @@ const app = initializeApp(firebaseConfig);
 
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
-const testAddBtn = document.getElementById("testAddBtn");
 
-testAddBtn.addEventListener("click", async () => {
-  await addDollToFirestore({
-    name: "測試娃娃",
-    company: "測試娃社",
-    officialName: "Test Doll",
-    price: 0,
-    faceupArtist: "",
-    faceupType: "",
-    faceupPrice: 0,
-    imageUrl: ""
-  });
-
-  alert("測試資料已新增到 Firestore");
-});
 /* ========================================
    Firestore 初始化
    ======================================== */
@@ -58,6 +60,8 @@ let currentUser = null;
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const userInfo = document.getElementById("userInfo");
+
+
 
 loginBtn.addEventListener("click", async () => {
   try {
