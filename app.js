@@ -527,7 +527,7 @@ async function replaceAllDollsInSupabase(newItems) {
 
   function updateDirStatusUI() {
     if (!els.dirName || !els.dirStatus) return;
-    if (imageDirHandle) {
+    if (imageDirHandle && data.id) {
       els.dirName.textContent = imageDirHandle.name;
       els.dirStatus.textContent = "已連線";
       els.dirStatus.className = "dir-status-badge connected";
@@ -1756,14 +1756,16 @@ if (currentImages.length > 0 && !currentCoverThumbnail) {
 // 產生縮圖之後再收集表單資料，這樣 coverThumbnail 才會被存進 Firestore
 let data = collectFormData();
 
-    if (imageDirHandle) {
-      try {
-        data.images = await saveImagesToFolder(data.id, currentImages);
-      } catch (err) {
-        console.error("圖片儲存失敗", err);
-        alert("圖片儲存失敗，請確認資料夾權限。圖片將以內嵌方式儲存。");
-      }
-    }
+    // 目前改用 Supabase UUID，新增資料時 id 由 Supabase 自動產生。
+// 所以先停用本機資料夾圖片儲存，避免 data.id 為 null 時儲存失敗。
+// if (imageDirHandle) {
+//   try {
+//     data.images = await saveImagesToFolder(data.id, currentImages);
+//   } catch (err) {
+//     console.error("圖片儲存失敗", err);
+//     alert("圖片儲存失敗，請確認資料夾權限。圖片將以內嵌方式儲存。");
+//   }
+// }
 
     try {
       if (
