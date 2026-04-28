@@ -1,20 +1,3 @@
-const testAddBtn = document.getElementById("testAddBtn");
-
-testAddBtn.addEventListener("click", async () => {
-  await addDollToFirestore({
-    name: "測試娃娃",
-    company: "測試娃社",
-    officialName: "Test Doll",
-    price: 0,
-    faceupArtist: "",
-    faceupType: "",
-    faceupPrice: 0,
-    imageUrl: ""
-  });
-
-  alert("測試資料已新增到 Firestore");
-});
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
 
 import {
@@ -31,8 +14,10 @@ import {
   addDoc,
   getDocs,
   doc,
+  setDoc,
   updateDoc,
   deleteDoc,
+  writeBatch,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
@@ -81,19 +66,29 @@ logoutBtn.addEventListener("click", async () => {
   }
 });
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
+
     loginBtn.style.display = "none";
     logoutBtn.style.display = "inline-block";
     userInfo.textContent = `已登入：${user.displayName || user.email}`;
 
     console.log("使用者 UID：", user.uid);
+
+    if (typeof window.loadDataFromCloud === "function") {
+      await window.loadDataFromCloud();
+    }
   } else {
     currentUser = null;
+
     loginBtn.style.display = "inline-block";
     logoutBtn.style.display = "none";
     userInfo.textContent = "尚未登入";
+
+    if (typeof window.clearLocalView === "function") {
+      window.clearLocalView();
+    }
   }
 });
 
@@ -102,7 +97,7 @@ onAuthStateChanged(auth, (user) => {
    ======================================== */
 
 async function loadDollsFromFirestore() {
-  if (!currentUser) return;
+  if (!currentUser) return [];
 
   const dollsRef = collection(db, "users", currentUser.uid, "dolls");
   const snapshot = await getDocs(dollsRef);
@@ -124,18 +119,20 @@ async function loadDollsFromFirestore() {
 async function addDollToFirestore(dollData) {
   if (!currentUser) {
     alert("請先登入");
-    return;
+    return null;
   }
 
-  const dollsRef = collection(db, "users", currentUser.uid, "dolls");
+  const id = dollData.id || Date.now().toString();
+  const dollRef = doc(db, "users", currentUser.uid, "dolls", id);
 
-  await addDoc(dollsRef, {
+  await setDoc(dollRef, {
     ...dollData,
+    id,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 
-  return await loadDollsFromFirestore();
+  return id;
 }
 
 async function updateDollInFirestore(dollId, updatedData) {
@@ -148,10 +145,9 @@ async function updateDollInFirestore(dollId, updatedData) {
 
   await updateDoc(dollRef, {
     ...updatedData,
+    id: dollId,
     updatedAt: serverTimestamp()
   });
-
-  return await loadDollsFromFirestore();
 }
 
 async function deleteDollFromFirestore(dollId) {
@@ -161,8 +157,34 @@ async function deleteDollFromFirestore(dollId) {
   }
 
   await deleteDoc(doc(db, "users", currentUser.uid, "dolls", dollId));
+}
 
-  return await loadDollsFromFirestore();
+async function replaceAllDollsInFirestore(newItems) {
+  if (!currentUser) {
+    alert("請先登入");
+    return;
+  }
+
+  const oldItems = await loadDollsFromFirestore();
+  const batch = writeBatch(db);
+
+  oldItems.forEach((item) => {
+    const ref = doc(db, "users", currentUser.uid, "dolls", item.id);
+    batch.delete(ref);
+  });
+
+  newItems.forEach((item) => {
+    const id = item.id || Date.now().toString() + "_" + Math.random().toString(36).slice(2);
+    const ref = doc(db, "users", currentUser.uid, "dolls", id);
+    batch.set(ref, {
+      ...item,
+      id,
+      importedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+  });
+
+  await batch.commit();
 }
 /* ========================================
    BJD 收藏資料庫 — 主程式
@@ -792,16 +814,21 @@ async function deleteDollFromFirestore(dollId) {
      【TODO】以下使用 localStorage，日後需遷移至 Firestore
      -------------------------------------------------- */
 
-  function loadData() {
-    // 【TODO】改成：const dolls = await loadDollsFromFirestore();
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) items = JSON.parse(saved);
+  async function loadData() {
+    if (!currentUser) {
+      items = [];
+      refreshCompanyFilter();
+      render();
+      return;
+    }
+
+    items = await loadDollsFromFirestore();
 
     items.forEach((item) => {
       if (item.purchaseDate)
-        item.purchaseDate = item.purchaseDate.replace(/-/g, "/");
+        item.purchaseDate = String(item.purchaseDate).replace(/-/g, "/");
       if (item.arrivalDate)
-        item.arrivalDate = item.arrivalDate.replace(/-/g, "/");
+        item.arrivalDate = String(item.arrivalDate).replace(/-/g, "/");
     });
 
     refreshCompanyFilter();
@@ -809,8 +836,6 @@ async function deleteDollFromFirestore(dollId) {
   }
 
   function saveData() {
-    // 【TODO】改成：await addDollToFirestore(data); 或 await updateDollInFirestore(id, data);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
     refreshCompanyFilter();
     render();
   }
@@ -1151,20 +1176,31 @@ async function deleteDollFromFirestore(dollId) {
 
   async function confirmDelete() {
     if (!pendingDeleteId) return;
+
     const item = items.find((i) => i.id === pendingDeleteId);
-    const deleteBody = item && item.bjdType === "整娃" && item.selectedBodyId && els.deleteBodyCheck.checked;
+    const deleteBody =
+      item &&
+      item.bjdType === "整娃" &&
+      item.selectedBodyId &&
+      els.deleteBodyCheck.checked;
 
-    deleteItemFolder(pendingDeleteId);
-    if (deleteBody) {
-      deleteItemFolder(item.selectedBodyId);
-      items = items.filter((i) => i.id !== pendingDeleteId && i.id !== item.selectedBodyId);
-    } else {
-      items = items.filter((i) => i.id !== pendingDeleteId);
+    try {
+      await deleteItemFolder(pendingDeleteId);
+      await deleteDollFromFirestore(pendingDeleteId);
+
+      if (deleteBody) {
+        await deleteItemFolder(item.selectedBodyId);
+        await deleteDollFromFirestore(item.selectedBodyId);
+      }
+
+      pendingDeleteId = null;
+      els.deleteDialog.close();
+
+      await loadData();
+    } catch (err) {
+      console.error("刪除失敗：", err);
+      alert("刪除失敗：" + err.message);
     }
-
-    pendingDeleteId = null;
-    els.deleteDialog.close();
-    saveData();
   }
 
   function cancelDelete() {
@@ -1275,6 +1311,12 @@ async function deleteDollFromFirestore(dollId) {
 
   async function handleFormSubmit(e) {
     e.preventDefault();
+
+    if (!currentUser) {
+      alert("請先登入 Google 帳號");
+      return;
+    }
+
     let data = collectFormData();
     currentImages = normalizeImages(currentImages);
 
@@ -1287,35 +1329,43 @@ async function deleteDollFromFirestore(dollId) {
       }
     }
 
-    if (editingId) {
-      const idx = items.findIndex((i) => i.id === editingId);
-      items[idx] = data;
-    } else {
-      items.push(data);
-    }
+    try {
+      if (
+        data.bjdType === "整娃" &&
+        data.bodySource === "new" &&
+        fields.bodyOfficialName.value.trim()
+      ) {
+        let bodyItem = buildBodyItemFromForm(data.id);
 
-    if (
-      data.bjdType === "整娃" &&
-      data.bodySource === "new" &&
-      fields.bodyOfficialName.value.trim()
-    ) {
-      const bodyItem = buildBodyItemFromForm(data.id);
-      const existingIdx = items.findIndex(
-        (i) => i.linkedParentId === data.id && i.bjdType === "素體"
-      );
-      if (existingIdx >= 0) {
-        bodyItem.id = items[existingIdx].id;
-        items[existingIdx] = bodyItem;
-      } else {
-        items.push(bodyItem);
+        const existingBody = items.find(
+          (i) => i.linkedParentId === data.id && i.bjdType === "素體"
+        );
+
+        if (existingBody) {
+          bodyItem.id = existingBody.id;
+        }
+
+        data.selectedBodyId = bodyItem.id;
+
+        if (existingBody) {
+          await updateDollInFirestore(bodyItem.id, bodyItem);
+        } else {
+          await addDollToFirestore(bodyItem);
+        }
       }
-      data.selectedBodyId = bodyItem.id;
-      const mainIdx = items.findIndex((i) => i.id === data.id);
-      if (mainIdx >= 0) items[mainIdx] = data;
-    }
 
-    saveData();
-    els.dialog.close();
+      if (editingId) {
+        await updateDollInFirestore(editingId, data);
+      } else {
+        await addDollToFirestore(data);
+      }
+
+      await loadData();
+      els.dialog.close();
+    } catch (err) {
+      console.error("儲存失敗：", err);
+      alert("儲存失敗：" + err.message);
+    }
   }
 
   /* --------------------------------------------------
@@ -1417,7 +1467,7 @@ async function deleteDollFromFirestore(dollId) {
   function importData(file) {
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         let imported;
         if (pendingImportFormat === "csv") {
@@ -1426,8 +1476,8 @@ async function deleteDollFromFirestore(dollId) {
           imported = JSON.parse(e.target.result);
         }
         if (Array.isArray(imported) && imported.length > 0) {
-          items = imported;
-          saveData();
+          await replaceAllDollsInFirestore(imported);
+          await loadData();
           alert(`匯入成功！共 ${imported.length} 筆資料`);
         } else {
           alert("檔案內無有效資料");
@@ -1752,13 +1802,23 @@ async function deleteDollFromFirestore(dollId) {
 
   async function init() {
     bindEvents();
-    loadData();
+
+    refreshCompanyFilter();
+    render();
 
     if (fsaSupported()) {
       const restored = await restoreImageDir();
       if (restored) render();
     }
   }
+
+  window.loadDataFromCloud = loadData;
+
+  window.clearLocalView = function () {
+    items = [];
+    refreshCompanyFilter();
+    render();
+  };
 
   init();
 })();
