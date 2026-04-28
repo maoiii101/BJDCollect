@@ -8,10 +8,15 @@
 </head>
 <body>
 
+  <div class="auth-bar">
+    <span id="userInfo">尚未登入</span>
+    <button id="loginBtn">使用 Google 登入</button>
+    <button id="logoutBtn" style="display: none;">登出</button>
+  </div>
+
   <header>
     <h1>BJD<span>Collection Database</span></h1>
   </header>
-
   <!-- ===== 工具列 ===== -->
   <main class="app">
     <div class="toolbar">
@@ -452,6 +457,6 @@
     </div>
   </dialog>
 
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

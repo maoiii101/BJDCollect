@@ -1,3 +1,63 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
+
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDC7m1RdpFf0MLTjwQ1xbJ-07ohXgxJ6UU",
+  authDomain: "bjdcollect.firebaseapp.com",
+  projectId: "bjdcollect",
+  storageBucket: "bjdcollect.firebasestorage.app",
+  messagingSenderId: "73077257585",
+  appId: "1:73077257585:web:479fa36a07b4158b7272d0",
+  measurementId: "G-415C8CW94Y"
+};
+
+const app = initializeApp(firebaseConfig);
+
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+
+const loginBtn = document.getElementById("loginBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+const userInfo = document.getElementById("userInfo");
+
+loginBtn.addEventListener("click", async () => {
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (error) {
+    console.error("登入失敗：", error);
+    alert("登入失敗：" + error.message);
+  }
+});
+
+logoutBtn.addEventListener("click", async () => {
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error("登出失敗：", error);
+    alert("登出失敗：" + error.message);
+  }
+});
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    loginBtn.style.display = "none";
+    logoutBtn.style.display = "inline-block";
+    userInfo.textContent = `已登入：${user.displayName || user.email}`;
+
+    console.log("使用者 UID：", user.uid);
+  } else {
+    loginBtn.style.display = "inline-block";
+    logoutBtn.style.display = "none";
+    userInfo.textContent = "尚未登入";
+  }
+});
 /* ========================================
    BJD 收藏資料庫 — 主程式
    ======================================== */

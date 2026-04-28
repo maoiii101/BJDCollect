@@ -58,6 +58,52 @@ h1 span {
   margin-top: 8px;
 }
 
+/* --- Authentication Bar --- */
+.auth-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(15px);
+  border-bottom: 1px solid rgba(216, 137, 155, 0.15);
+}
+
+#userInfo {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+#loginBtn,
+#logoutBtn {
+  padding: 10px 22px;
+  border-radius: 12px;
+  border: none;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 4px 12px rgba(216, 137, 155, 0.25);
+}
+
+#loginBtn:hover,
+#logoutBtn:hover {
+  background: var(--accent-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(216, 137, 155, 0.35);
+}
+
+#loginBtn:active,
+#logoutBtn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(216, 137, 155, 0.2);
+}
+
 /* --- Layout --- */
 .app {
   width: min(1200px, calc(100% - 40px));
