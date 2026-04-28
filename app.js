@@ -1,91 +1,87 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
-
-import {
-  getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signOut,
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
-
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  getDocs,
-  doc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  writeBatch,
-  serverTimestamp
-} from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyDC7m1RdpFf0MLTjwQ1xbJ-07ohXgxJ6UU",
-  authDomain: "bjdcollect.firebaseapp.com",
-  projectId: "bjdcollect",
-  storageBucket: "bjdcollect.firebasestorage.app",
-  messagingSenderId: "73077257585",
-  appId: "1:73077257585:web:479fa36a07b4158b7272d0",
-  measurementId: "G-415C8CW94Y"
-};
-
-const app = initializeApp(firebaseConfig);
-
-const auth = getAuth(app);
-const provider = new GoogleAuthProvider();
-
 /* ========================================
-   Firestore 初始化
+   Supabase 初始化
    ======================================== */
-const db = getFirestore(app);
+const SUPABASE_URL = "https://ldmfddzlazzytlrjjwqf.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Wh9Jr15Fv3GMcr_d9-N1jg_UfUwPDwX";
+
+if (!SUPABASE_KEY) {
+  alert("請在 app.js 的 SUPABASE_KEY 變數中填入你的 Supabase publishable key");
+}
+
+const { createClient } = window.supabase;
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
 let currentUser = null;
 
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const userInfo = document.getElementById("userInfo");
 
+// 登入對話框（Email + Password）
+async function showLoginDialog() {
+  const email = prompt("請輸入電子郵件：");
+  if (!email) return;
 
+  const password = prompt("請輸入密碼：");
+  if (!password) return;
 
-loginBtn.addEventListener("click", async () => {
   try {
-    await signInWithPopup(auth, provider);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) throw error;
+
+    currentUser = data.user;
+    updateAuthUI();
+    await loadData();
+    alert("登入成功！");
   } catch (error) {
     console.error("登入失敗：", error);
     alert("登入失敗：" + error.message);
   }
-});
+}
+
+loginBtn.addEventListener("click", showLoginDialog);
 
 logoutBtn.addEventListener("click", async () => {
   try {
-    await signOut(auth);
+    await supabase.auth.signOut();
+    currentUser = null;
+    updateAuthUI();
+    items = [];
+    render();
   } catch (error) {
     console.error("登出失敗：", error);
     alert("登出失敗：" + error.message);
   }
 });
 
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    currentUser = user;
-
+function updateAuthUI() {
+  if (currentUser) {
     loginBtn.style.display = "none";
     logoutBtn.style.display = "inline-block";
-    userInfo.textContent = `已登入：${user.displayName || user.email}`;
-
-    console.log("使用者 UID：", user.uid);
-
-    if (typeof window.loadDataFromCloud === "function") {
-      await window.loadDataFromCloud();
-    }
+    userInfo.textContent = `已登入：${currentUser.email}`;
+    console.log("使用者 ID：", currentUser.id);
   } else {
-    currentUser = null;
-
     loginBtn.style.display = "inline-block";
     logoutBtn.style.display = "none";
     userInfo.textContent = "尚未登入";
+  }
+}
 
+// 初始化時檢查登入狀態
+supabase.auth.onAuthStateChange((event, session) => {
+  if (session) {
+    currentUser = session.user;
+    updateAuthUI();
+    if (typeof window.loadDataFromCloud === "function") {
+      window.loadDataFromCloud();
+    }
+  } else {
+    currentUser = null;
+    updateAuthUI();
     if (typeof window.clearLocalView === "function") {
       window.clearLocalView();
     }
@@ -93,98 +89,136 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 /* ========================================
-   Firestore 資料操作函式
+   Supabase 資料操作函式
    ======================================== */
 
-async function loadDollsFromFirestore() {
+async function loadDollsFromSupabase() {
   if (!currentUser) return [];
 
-  const dollsRef = collection(db, "users", currentUser.uid, "dolls");
-  const snapshot = await getDocs(dollsRef);
+  const { data, error } = await supabase
+    .from("dolls")
+    .select("*")
+    .eq("user_id", currentUser.id)
+    .order("created_at", { ascending: false });
 
-  const dolls = [];
+  if (error) {
+    console.error("讀取 Supabase 資料失敗：", error);
+    return [];
+  }
 
-  snapshot.forEach((docSnap) => {
-    dolls.push({
-      id: docSnap.id,
-      ...docSnap.data()
-    });
-  });
+  const dolls = (data || []).map(row => ({
+    id: row.id,
+    ...row
+  }));
 
-  console.log("從 Firestore 讀到的娃娃資料：", dolls);
+  console.log("從 Supabase 讀到的娃娃資料：", dolls);
 
   return dolls;
 }
 
-async function addDollToFirestore(dollData) {
+async function addDollToSupabase(dollData) {
   if (!currentUser) {
     alert("請先登入");
     return null;
   }
 
   const id = dollData.id || Date.now().toString();
-  const dollRef = doc(db, "users", currentUser.uid, "dolls", id);
 
-  await setDoc(dollRef, {
-    ...dollData,
-    id,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  });
+  const { data, error } = await supabase
+    .from("dolls")
+    .insert([
+      {
+        id,
+        user_id: currentUser.id,
+        ...dollData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+    ])
+    .select();
+
+  if (error) {
+    console.error("新增失敗：", error);
+    throw error;
+  }
 
   return id;
 }
 
-async function updateDollInFirestore(dollId, updatedData) {
+async function updateDollInSupabase(dollId, updatedData) {
   if (!currentUser) {
     alert("請先登入");
     return;
   }
 
-  const dollRef = doc(db, "users", currentUser.uid, "dolls", dollId);
+  const { error } = await supabase
+    .from("dolls")
+    .update({
+      ...updatedData,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", dollId)
+    .eq("user_id", currentUser.id);
 
-  await updateDoc(dollRef, {
-    ...updatedData,
-    id: dollId,
-    updatedAt: serverTimestamp()
-  });
+  if (error) {
+    console.error("編輯失敗：", error);
+    throw error;
+  }
 }
 
-async function deleteDollFromFirestore(dollId) {
+async function deleteDollFromSupabase(dollId) {
   if (!currentUser) {
     alert("請先登入");
     return;
   }
 
-  await deleteDoc(doc(db, "users", currentUser.uid, "dolls", dollId));
+  const { error } = await supabase
+    .from("dolls")
+    .delete()
+    .eq("id", dollId)
+    .eq("user_id", currentUser.id);
+
+  if (error) {
+    console.error("刪除失敗：", error);
+    throw error;
+  }
 }
 
-async function replaceAllDollsInFirestore(newItems) {
+async function replaceAllDollsInSupabase(newItems) {
   if (!currentUser) {
     alert("請先登入");
     return;
   }
 
-  const oldItems = await loadDollsFromFirestore();
-  const batch = writeBatch(db);
+  // 先刪除所有舊資料
+  const { error: deleteError } = await supabase
+    .from("dolls")
+    .delete()
+    .eq("user_id", currentUser.id);
 
-  oldItems.forEach((item) => {
-    const ref = doc(db, "users", currentUser.uid, "dolls", item.id);
-    batch.delete(ref);
-  });
+  if (deleteError) {
+    console.error("刪除舊資料失敗：", deleteError);
+    throw deleteError;
+  }
 
-  newItems.forEach((item) => {
-    const id = item.id || Date.now().toString() + "_" + Math.random().toString(36).slice(2);
-    const ref = doc(db, "users", currentUser.uid, "dolls", id);
-    batch.set(ref, {
-      ...item,
-      id,
-      importedAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-  });
+  // 再插入新資料
+  const now = new Date().toISOString();
+  const itemsToInsert = newItems.map(item => ({
+    id: item.id || Date.now().toString() + "_" + Math.random().toString(36).slice(2),
+    user_id: currentUser.id,
+    ...item,
+    created_at: now,
+    updated_at: now
+  }));
 
-  await batch.commit();
+  const { error: insertError } = await supabase
+    .from("dolls")
+    .insert(itemsToInsert);
+
+  if (insertError) {
+    console.error("匯入新資料失敗：", insertError);
+    throw insertError;
+  }
 }
 /* ========================================
    BJD 收藏資料庫 — 主程式
@@ -896,7 +930,7 @@ async function replaceAllDollsInFirestore(newItems) {
       return;
     }
 
-    items = await loadDollsFromFirestore();
+    items = await loadDollsFromSupabase();
 
     items.forEach((item) => {
       if (item.purchaseDate)
@@ -1349,11 +1383,11 @@ async function replaceAllDollsInFirestore(newItems) {
 
     try {
       await deleteItemFolder(pendingDeleteId);
-      await deleteDollFromFirestore(pendingDeleteId);
+      await deleteDollFromSupabase(pendingDeleteId);
 
       if (deleteBody) {
         await deleteItemFolder(item.selectedBodyId);
-        await deleteDollFromFirestore(item.selectedBodyId);
+        await deleteDollFromSupabase(item.selectedBodyId);
       }
 
       pendingDeleteId = null;
@@ -1557,16 +1591,16 @@ let data = collectFormData();
         data.selectedBodyId = bodyItem.id;
 
         if (existingBody) {
-          await updateDollInFirestore(bodyItem.id, bodyItem);
+          await updateDollInSupabase(bodyItem.id, bodyItem);
         } else {
-          await addDollToFirestore(bodyItem);
+          await addDollToSupabase(bodyItem);
         }
       }
 
       if (editingId) {
-        await updateDollInFirestore(editingId, data);
+        await updateDollInSupabase(editingId, data);
       } else {
-        await addDollToFirestore(data);
+        await addDollToSupabase(data);
       }
 
       await loadData();
@@ -1685,7 +1719,7 @@ let data = collectFormData();
           imported = JSON.parse(e.target.result);
         }
         if (Array.isArray(imported) && imported.length > 0) {
-          await replaceAllDollsInFirestore(imported);
+          await replaceAllDollsInSupabase(imported);
           await loadData();
           alert(`匯入成功！共 ${imported.length} 筆資料`);
         } else {

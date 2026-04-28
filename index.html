@@ -5,17 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>收藏資料庫</title>
   <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
   <div class="auth-bar">
     <span id="userInfo">尚未登入</span>
-    <button type="button" id="loginBtn">使用 Google 登入</button>
+    <button type="button" id="loginBtn">登入</button>
     <button type="button" id="logoutBtn" style="display: none;">登出</button>
   </div>
 
   <p style="font-size: smaller; margin: 5px 0 0 0; color: #666; text-align: center;">
-    請先使用 Google 登入。登入後，收藏資料會儲存在雲端，並可在不同裝置讀取。＊請注意，未被授權的Google帳號無法使用＊
+    請先登入帳號。登入後，收藏資料會儲存在雲端，並可在不同裝置讀取。
   </p>
 
   <header>
