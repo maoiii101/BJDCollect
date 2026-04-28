@@ -310,27 +310,28 @@ async function addDollToSupabase(dollData) {
     return null;
   }
 
-  const id = dollData.id || Date.now().toString();
+  const cleanData = { ...dollData };
+  delete cleanData.id;
 
   const { data, error } = await supabase
     .from("dolls")
     .insert([
       {
-        id,
         user_id: currentUser.id,
-        ...convertToSnakeCase(dollData),
+        ...convertToSnakeCase(cleanData),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
     ])
-    .select();
+    .select()
+    .single();
 
   if (error) {
     console.error("新增失敗：", error);
     throw error;
   }
 
-  return id;
+  return data.id;
 }
 
 async function updateDollInSupabase(dollId, updatedData) {
@@ -1597,7 +1598,7 @@ async function replaceAllDollsInSupabase(newItems) {
    }
   function collectFormData() {
     return {
-      id: editingId || Date.now().toString(),
+      id: editingId || null,
       name: fields.name.value,
       company: fields.company.value,
       officialName: fields.officialName.value,
@@ -1663,7 +1664,7 @@ async function replaceAllDollsInSupabase(newItems) {
 
   function buildBodyItemFromForm(parentId) {
     return {
-      id: Date.now().toString() + "_body",
+      id: null,
       bjdType: "素體",
       name: "",
       company: fields.bodyCompany.value,
