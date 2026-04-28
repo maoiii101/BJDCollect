@@ -1069,25 +1069,43 @@ async function replaceAllDollsInFirestore(newItems) {
   }
 
   async function setCoverImage(index) {
-    currentImages = currentImages.map((img, idx) => ({ ...img, cover: idx === index }));
-    currentImages = normalizeImages(currentImages);
-    renderImageGallery();
+  currentImages = currentImages.map((img, idx) => ({
+    ...img,
+    cover: idx === index
+  }));
 
-    const coverImg = currentImages[0];
+  currentImages = normalizeImages(currentImages);
+  renderImageGallery();
 
-    try {
-      if (coverImg.fileObject) {
-        currentCoverThumbnail = await createResizedThumbnailFromSource(coverImg.fileObject, 400, 0.7);
-      } else if (coverImg.data) {
-        currentCoverThumbnail = await createResizedThumbnailFromSource(coverImg.data, 400, 0.7);
-      } else if (coverImg.url) {
-        currentCoverThumbnail = await createResizedThumbnailFromSource(coverImg.url, 400, 0.7);
-      }
-    } catch (err) {
-      console.warn("封面縮圖產生失敗：", err);
-      alert("封面縮圖產生失敗。若是圖片網址，可能是該網站不允許跨域讀取圖片。你仍可使用此圖片，但換設備時可能沒有封面縮圖。");
+  const coverImg = currentImages[0];
+
+  try {
+    if (coverImg.fileObject) {
+      currentCoverThumbnail = await createResizedThumbnailFromSource(
+        coverImg.fileObject,
+        400,
+        0.7
+      );
+    } else if (coverImg.url) {
+      currentCoverThumbnail = await createResizedThumbnailFromSource(
+        coverImg.url,
+        400,
+        0.7
+      );
+    } else if (coverImg.data) {
+      currentCoverThumbnail = await createResizedThumbnailFromSource(
+        coverImg.data,
+        400,
+        0.7
+      );
     }
+  } catch (err) {
+    console.warn("封面縮圖產生失敗：", err);
+    alert(
+      "封面縮圖產生失敗。若是圖片網址，可能是該網站不允許跨域讀取圖片。你仍可使用此圖片，但換設備時可能沒有封面縮圖。"
+    );
   }
+}
 
   function removeImage(index) {
     currentImages.splice(index, 1);
@@ -1471,13 +1489,39 @@ async function replaceAllDollsInFirestore(newItems) {
       return;
     }
 
-    let data = collectFormData();
     currentImages = normalizeImages(currentImages);
 
-    // 提醒封面縮圖
-    if (currentImages.length > 0 && !currentCoverThumbnail) {
-      console.warn("此筆收藏目前沒有封面縮圖，換設備時可能看不到封面。");
+// 如果有圖片但還沒有封面縮圖，儲存前自動嘗試產生
+if (currentImages.length > 0 && !currentCoverThumbnail) {
+  const coverImg = currentImages.find((img) => img.cover) || currentImages[0];
+
+  try {
+    if (coverImg.fileObject) {
+      currentCoverThumbnail = await createResizedThumbnailFromSource(
+        coverImg.fileObject,
+        400,
+        0.7
+      );
+    } else if (coverImg.url) {
+      currentCoverThumbnail = await createResizedThumbnailFromSource(
+        coverImg.url,
+        400,
+        0.7
+      );
+    } else if (coverImg.data) {
+      currentCoverThumbnail = await createResizedThumbnailFromSource(
+        coverImg.data,
+        400,
+        0.7
+      );
     }
+  } catch (err) {
+    console.warn("封面縮圖自動產生失敗：", err);
+  }
+}
+
+// 產生縮圖之後再收集表單資料，這樣 coverThumbnail 才會被存進 Firestore
+let data = collectFormData();
 
     if (imageDirHandle) {
       try {
@@ -1959,60 +2003,9 @@ async function replaceAllDollsInFirestore(newItems) {
           break;
       }
     });
-
-    // 裁切 Dialog 事件
-    els.cropCloseBtn.addEventListener("click", closeCropDialog);
-    els.cropCancelBtn.addEventListener("click", closeCropDialog);
-    els.cropConfirmBtn.addEventListener("click", () => {
-      const cropped = createCroppedThumbnail();
-      if (cropped) {
-        currentCoverThumbnail = cropped;
-        closeCropDialog();
-      } else {
-        alert("裁切失敗，請檢查圖片來源");
-      }
-    });
-
-    // 裁切互動
-    els.cropFrame.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-      cropState.dragging = true;
-      cropState.startX = e.clientX - cropState.offsetX;
-      cropState.startY = e.clientY - cropState.offsetY;
-      els.cropFrame.classList.add("dragging");
-    });
-
-    window.addEventListener("pointermove", (e) => {
-      if (!cropState.dragging) return;
-      e.preventDefault();
-      cropState.offsetX = e.clientX - cropState.startX;
-      cropState.offsetY = e.clientY - cropState.startY;
-      updateCropPreview();
-    });
-
-    window.addEventListener("pointerup", () => {
-      cropState.dragging = false;
-      els.cropFrame.classList.remove("dragging");
-    });
-
-    window.addEventListener("pointercancel", () => {
-      cropState.dragging = false;
-      els.cropFrame.classList.remove("dragging");
-    });
-
-    els.cropZoom.addEventListener("input", (e) => {
-      cropState.scale = parseFloat(e.target.value);
-      updateCropPreview();
-    });
-
-    }
-
+  }
   /* --------------------------------------------------
-     §11  裁切功能
-     -------------------------------------------------- */
-
-  /* --------------------------------------------------
-     §11  初始化
+     §12  初始化
      -------------------------------------------------- */
 
   async function init() {
